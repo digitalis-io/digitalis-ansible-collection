@@ -1,0 +1,6 @@
+OpenBao Ansible role
+Copyright 2026 Digitalis.io
+
+This role is derived from ansible-role-openbao by Robert de Bock
+(https://github.com/robertdebock/ansible-role-openbao), licensed under the
+Apache License, Version 2.0.

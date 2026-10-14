@@ -1,0 +1,19 @@
+---
+- name: Repo | Import OpenBao signing key
+  ansible.builtin.rpm_key:
+    key: "{{ openbao_gpg_key_url }}"
+    validate_certs: "{{ openbao_validate_certs }}"
+    state: present
+  register: openbao_rpm_key
+  until: openbao_rpm_key is succeeded
+  retries: 3
+  delay: 5
+
+- name: Repo | Configure OpenBao YUM repository
+  ansible.builtin.yum_repository:
+    name: openbao
+    description: OpenBao
+    baseurl: "{{ openbao_yum_repository_baseurl }}"
+    gpgcheck: true
+    gpgkey: "{{ openbao_gpg_key_url }}"
+    enabled: true

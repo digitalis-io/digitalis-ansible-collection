@@ -1,0 +1,109 @@
+---
+# Scenario: Applying the role again changes nothing is realised by the
+# Molecule idempotence step.
+- name: Verify
+  hosts: all
+  gather_facts: true
+  environment:
+    BAO_ADDR: "{{ openbao_agent_test_bao_addr }}"
+    BAO_TOKEN: "{{ openbao_agent_test_bao_token }}"
+  tasks:
+    - name: "Scenario: The agent runs as a system service | gather service facts"
+      ansible.builtin.service_facts:
+
+    - name: "Scenario: The agent runs as a system service | assert enabled and running"
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.services['openbao-agent.service'].state == 'running'
+          - ansible_facts.services['openbao-agent.service'].status == 'enabled'
+
+    - name: "Scenario: The agent runs as a system service | stat credentials"
+      ansible.builtin.stat:
+        path: "/etc/openbao-agent/{{ item }}"
+      loop: [role_id, secret_id]
+      register: openbao_agent_test_creds
+
+    - name: "Scenario: The agent runs as a system service | assert credentials are private"
+      ansible.builtin.assert:
+        that:
+          - item.stat.exists
+          - item.stat.mode == '0600'
+          - item.stat.pw_name == 'openbao-agent'
+      loop: "{{ openbao_agent_test_creds.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: "Scenario: Secrets are rendered | wait for rendered files"
+      ansible.builtin.wait_for:
+        path: "{{ item }}"
+        search_regex: s3cr3t-one
+        timeout: 30
+      loop:
+        - /etc/myapp/app.conf
+        - /var/lib/myapp/app.env
+
+    - name: "Scenario: Secrets are rendered | read inline template output"
+      ansible.builtin.slurp:
+        src: /etc/myapp/app.conf
+      register: openbao_agent_test_app_conf
+
+    - name: "Scenario: Secrets are rendered | read file template output"
+      ansible.builtin.slurp:
+        src: /var/lib/myapp/app.env
+      register: openbao_agent_test_app_env
+
+    - name: "Scenario: Secrets are rendered | stat rendered files"
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - /etc/myapp/app.conf
+        - /var/lib/myapp/app.env
+        - /var/lib/openbao-agent/app-env-rendered
+      register: openbao_agent_test_rendered
+
+    - name: "Scenario: Secrets are rendered | assert contents, permissions and exec"
+      ansible.builtin.assert:
+        that:
+          - (openbao_agent_test_app_conf.content | b64decode | trim) == 'password=s3cr3t-one'
+          - "'APP_USER=app' in (openbao_agent_test_app_env.content | b64decode)"
+          - "'APP_PASSWORD=s3cr3t-one' in (openbao_agent_test_app_env.content | b64decode)"
+          - openbao_agent_test_rendered.results[0].stat.mode == '0640'
+          - openbao_agent_test_rendered.results[1].stat.mode == '0600'
+          - openbao_agent_test_rendered.results[0].stat.pw_name == 'openbao-agent'
+          - openbao_agent_test_rendered.results[2].stat.exists
+
+    - name: "Scenario: The agent exposes its token | stat token sink"
+      ansible.builtin.stat:
+        path: /var/lib/openbao-agent/agent-token
+      register: openbao_agent_test_sink
+
+    - name: "Scenario: The agent exposes its token | assert token sink"
+      ansible.builtin.assert:
+        that:
+          - openbao_agent_test_sink.stat.exists
+          - openbao_agent_test_sink.stat.size > 0
+          - openbao_agent_test_sink.stat.mode == '0640'
+
+    - name: "Scenario: The agent exposes its token | read secret through the API proxy"
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8100/v1/secret/data/app
+        return_content: true
+      register: openbao_agent_test_proxy
+
+    - name: "Scenario: The agent exposes its token | assert proxy response"
+      ansible.builtin.assert:
+        that:
+          - openbao_agent_test_proxy.json.data.data.password == 's3cr3t-one'
+
+    - name: "Scenario: A rotated secret is re-rendered | change the secret"
+      ansible.builtin.command: bao kv put -mount=secret app username=app password=s3cr3t-two
+      changed_when: true
+
+    - name: "Scenario: A rotated secret is re-rendered | wait for the new value"
+      ansible.builtin.wait_for:
+        path: "{{ item }}"
+        search_regex: s3cr3t-two
+        timeout: 60
+      loop:
+        - /etc/myapp/app.conf
+        - /var/lib/myapp/app.env

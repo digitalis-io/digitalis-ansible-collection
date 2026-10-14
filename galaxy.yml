@@ -1,0 +1,21 @@
+---
+namespace: digitalis
+name: digitalis
+version: 0.1.0
+readme: README.md
+authors:
+  - Digitalis.IO DevOps Team
+description: Ansible roles maintained by Digitalis.IO
+license:
+  - Apache-2.0
+tags: [openbao, vault, secrets, security, infrastructure]
+repository: https://github.com/digitalis-io/digitalis-ansible-collection
+issues: https://github.com/digitalis-io/digitalis-ansible-collection/issues
+documentation: https://github.com/digitalis-io/digitalis-ansible-collection#readme
+build_ignore:
+  - "*.tar.gz"
+  - .ansible-lint
+  - .yamllint
+  - .github
+  - "**/molecule"
+  - .gitignore

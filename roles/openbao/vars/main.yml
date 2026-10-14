@@ -1,0 +1,12 @@
+---
+openbao_apt_keyring: /etc/apt/keyrings/openbao.asc
+
+_openbao_package_name:
+  Debian: "openbao={{ openbao_version }}"
+  RedHat: "openbao-{{ openbao_version }}"
+
+openbao_package_name: "{{ _openbao_package_name[ansible_facts['os_family']] }}"
+
+openbao_supported_os_families:
+  - Debian
+  - RedHat

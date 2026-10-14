@@ -1,0 +1,29 @@
+---
+- name: Converge
+  hosts: all
+  gather_facts: true
+  pre_tasks:
+    - name: Read the AppRole credentials created by prepare
+      ansible.builtin.slurp:
+        src: /root/molecule-approle.json
+      register: openbao_agent_test_approle_raw
+
+  roles:
+    - role: openbao_agent
+      vars:
+        openbao_agent_test_approle: "{{ openbao_agent_test_approle_raw.content | b64decode | from_json }}"
+        openbao_agent_address: "{{ openbao_agent_test_bao_addr }}"
+        openbao_agent_approle_role_id: "{{ openbao_agent_test_approle.role_id }}"
+        openbao_agent_approle_secret_id: "{{ openbao_agent_test_approle.secret_id }}"
+        openbao_agent_listener_address: 127.0.0.1:8100
+        openbao_agent_template_static_secret_render_interval: 5s
+        openbao_agent_templates:
+          - destination: /etc/myapp/app.conf
+            perms: "0640"
+            error_on_missing_key: true
+            contents: !unsafe |
+              {{ with secret "secret/data/app" }}password={{ .Data.data.password }}{{ end }}
+          - destination: /var/lib/myapp/app.env
+            src: app.env.ctmpl
+            exec_command: ["sh", "-c", "date > /var/lib/openbao-agent/app-env-rendered"]
+            exec_timeout: 10s

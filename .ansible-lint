@@ -1,0 +1,9 @@
+---
+profile: production
+exclude_paths:
+  - .cache/
+  - .ansible/
+  - .github/
+kinds:
+  - tasks: "**/molecule/*/apply-role.yml"
+  - tasks: "**/molecule/*/expect-rejection.yml"

@@ -1,0 +1,62 @@
+---
+# Scenario: Applying the role again changes nothing is realised by the
+# Molecule idempotence step.
+- name: Verify
+  hosts: all
+  gather_facts: true
+  vars:
+    openbao_expected_version: "2.7.1"
+  tasks:
+    - name: "Scenario: The requested OpenBao version is installed | the package repository is configured"
+      ansible.builtin.stat:
+        path: "{{ '/etc/apt/sources.list.d/openbao.sources' if ansible_facts['os_family'] == 'Debian' else '/etc/yum.repos.d/openbao.repo' }}"
+      register: openbao_repo_file
+      tags: [installs-openbao]
+
+    - name: "Scenario: The requested OpenBao version is installed | assert repository file exists"
+      ansible.builtin.assert:
+        that: openbao_repo_file.stat.exists
+      tags: [installs-openbao]
+
+    - name: "Scenario: The requested OpenBao version is installed | read the binary version"
+      ansible.builtin.command: bao version
+      register: openbao_version_out
+      changed_when: false
+      tags: [installs-openbao]
+
+    - name: "Scenario: The requested OpenBao version is installed | assert version matches"
+      ansible.builtin.assert:
+        that: ("v" ~ openbao_expected_version) in openbao_version_out.stdout
+        fail_msg: "Expected {{ openbao_expected_version }}, got {{ openbao_version_out.stdout }}"
+      tags: [installs-openbao]
+
+    - name: "Scenario: The OpenBao server runs as a system service | gather service facts"
+      ansible.builtin.service_facts:
+      tags: [installs-openbao]
+
+    - name: "Scenario: The OpenBao server runs as a system service | assert enabled and running"
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.services['openbao.service'].state == 'running'
+          - ansible_facts.services['openbao.service'].status == 'enabled'
+      tags: [installs-openbao]
+
+    # sys/health returns 501 when uninitialised; the role does not initialise.
+    - name: "Scenario: The OpenBao server runs as a system service | query health endpoint"
+      ansible.builtin.uri:
+        url: https://127.0.0.1:8200/v1/sys/health
+        validate_certs: false
+        status_code: [501]
+        return_content: true
+      register: openbao_health
+      retries: 10
+      delay: 2
+      until: openbao_health.status == 501
+      tags: [installs-openbao]
+
+    - name: "Scenario: The OpenBao server runs as a system service | assert uninitialised and sealed"
+      ansible.builtin.assert:
+        that:
+          - not openbao_health.json.initialized
+          - openbao_health.json.sealed
+      tags: [installs-openbao]

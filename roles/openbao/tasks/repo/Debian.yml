@@ -1,0 +1,44 @@
+---
+- name: Repo | Install APT transport prerequisites
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Repo | Ensure APT keyring directory exists
+  ansible.builtin.file:
+    path: "{{ openbao_apt_keyring | dirname }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Repo | Download OpenBao signing key
+  ansible.builtin.get_url:
+    url: "{{ openbao_gpg_key_url }}"
+    dest: "{{ openbao_apt_keyring }}"
+    owner: root
+    group: root
+    mode: "0644"
+    validate_certs: "{{ openbao_validate_certs }}"
+  register: openbao_apt_key
+  until: openbao_apt_key is succeeded
+  retries: 3
+  delay: 5
+
+- name: Repo | Configure OpenBao APT repository
+  ansible.builtin.template:
+    src: openbao.sources.j2
+    dest: /etc/apt/sources.list.d/openbao.sources
+    owner: root
+    group: root
+    mode: "0644"
+  register: openbao_apt_repo
+
+# A handler would run too late: the package install below needs the new index.
+- name: Repo | Refresh APT cache  # noqa: no-handler
+  ansible.builtin.apt:
+    update_cache: true
+  when: openbao_apt_repo is changed

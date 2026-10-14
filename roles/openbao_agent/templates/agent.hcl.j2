@@ -1,0 +1,109 @@
+# {{ ansible_managed }}
+
+pid_file  = {{ (openbao_agent_data_dir ~ "/agent.pid") | to_json }}
+log_level = {{ openbao_agent_log_level | to_json }}
+
+vault {
+  address = {{ openbao_agent_address | to_json }}
+{% if openbao_agent_ca_cert | length > 0 %}
+  ca_cert = {{ openbao_agent_ca_cert | to_json }}
+{% endif %}
+{% if openbao_agent_tls_server_name | length > 0 %}
+  tls_server_name = {{ openbao_agent_tls_server_name | to_json }}
+{% endif %}
+  tls_skip_verify = {{ openbao_agent_tls_skip_verify | bool | to_json }}
+
+  retry {
+    num_retries = {{ openbao_agent_retry_num_retries | int }}
+  }
+}
+
+auto_auth {
+{% if openbao_agent_auth_method == 'approle' %}
+  method "approle" {
+    mount_path = {{ openbao_agent_auth_mount_path | to_json }}
+    config = {
+      role_id_file_path                   = {{ (openbao_agent_config_dir ~ "/role_id") | to_json }}
+      secret_id_file_path                 = {{ (openbao_agent_config_dir ~ "/secret_id") | to_json }}
+      remove_secret_id_file_after_reading = false
+    }
+  }
+{% elif openbao_agent_auth_method == 'token_file' %}
+  method "token_file" {
+    config = {
+      token_file_path = {{ (openbao_agent_config_dir ~ "/token") | to_json }}
+    }
+  }
+{% endif %}
+{% if openbao_agent_token_sink_enabled %}
+
+  sink "file" {
+    config = {
+      path = {{ openbao_agent_token_sink_path | to_json }}
+      mode = {{ openbao_agent_token_sink_mode | string | int(base=8) }}
+    }
+  }
+{% endif %}
+}
+{% if openbao_agent_listener_address | length > 0 %}
+
+cache {}
+
+api_proxy {
+  use_auto_auth_token = true
+}
+
+listener "tcp" {
+  address     = {{ openbao_agent_listener_address | to_json }}
+  tls_disable = true
+}
+{% endif %}
+
+template_config {
+  exit_on_retry_failure         = {{ openbao_agent_template_exit_on_retry_failure | bool | to_json }}
+  static_secret_render_interval = {{ openbao_agent_template_static_secret_render_interval | string | to_json }}
+}
+{% for tpl in openbao_agent_templates %}
+
+template {
+  destination = {{ tpl.destination | to_json }}
+{% if tpl.contents is defined %}
+  contents    = <<OPENBAO_AGENT_TEMPLATE_{{ loop.index }}
+{{ tpl.contents | trim }}
+OPENBAO_AGENT_TEMPLATE_{{ loop.index }}
+{% elif tpl.src is defined %}
+  source      = {{ (openbao_agent_config_dir ~ "/templates/" ~ (tpl.src | basename)) | to_json }}
+{% else %}
+  source      = {{ tpl.source | to_json }}
+{% endif %}
+  perms       = {{ tpl.perms | default(openbao_agent_template_default_perms) | string | to_json }}
+{% for key in ['error_on_missing_key', 'backup', 'create_dest_dirs'] if tpl[key] is defined %}
+  {{ key }} = {{ tpl[key] | bool | to_json }}
+{% endfor %}
+{% for key in ['left_delimiter', 'right_delimiter'] if tpl[key] is defined %}
+  {{ key }} = {{ tpl[key] | to_json }}
+{% endfor %}
+{% if tpl.wait_min is defined or tpl.wait_max is defined %}
+
+  wait {
+{% if tpl.wait_min is defined %}
+    min = {{ tpl.wait_min | string | to_json }}
+{% endif %}
+{% if tpl.wait_max is defined %}
+    max = {{ tpl.wait_max | string | to_json }}
+{% endif %}
+  }
+{% endif %}
+{% if tpl.exec_command is defined %}
+
+  exec {
+    command = {{ ([tpl.exec_command] if tpl.exec_command is string else tpl.exec_command) | to_json }}
+    timeout = {{ tpl.exec_timeout | default('30s') | string | to_json }}
+  }
+{% endif %}
+}
+{% endfor %}
+{% if openbao_agent_extra_config | length > 0 %}
+
+{{ openbao_agent_extra_config }}
+{% endif %}

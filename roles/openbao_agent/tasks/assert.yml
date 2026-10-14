@@ -1,0 +1,106 @@
+---
+- name: Assert | Check openbao_agent_address
+  ansible.builtin.assert:
+    that:
+      - openbao_agent_address is string
+      - openbao_agent_address is match('^https?://[^/\s]+')
+    fail_msg: "openbao_agent_address must be an http(s) URL such as https://openbao.example.com:8200"
+    quiet: true
+
+- name: Assert | Check openbao_agent_auth_method
+  ansible.builtin.assert:
+    that:
+      - openbao_agent_auth_method in openbao_agent_auth_methods
+    fail_msg: "openbao_agent_auth_method must be one of {{ openbao_agent_auth_methods | join(', ') }}"
+    quiet: true
+
+- name: Assert | Check AppRole credentials
+  ansible.builtin.assert:
+    that:
+      - openbao_agent_approle_role_id | length > 0
+      - openbao_agent_approle_secret_id | length > 0
+    fail_msg: "openbao_agent_approle_role_id and openbao_agent_approle_secret_id are required for the approle method"
+    quiet: true
+  when: openbao_agent_auth_method == 'approle'
+
+- name: Assert | Check token
+  ansible.builtin.assert:
+    that:
+      - openbao_agent_token | length > 0
+    fail_msg: "openbao_agent_token is required for the token_file method"
+    quiet: true
+  when: openbao_agent_auth_method == 'token_file'
+
+- name: Assert | Check templates
+  ansible.builtin.assert:
+    that:
+      - openbao_agent_templates is sequence
+      - openbao_agent_invalid_templates | length == 0
+    fail_msg: >-
+      Each entry in openbao_agent_templates needs an absolute destination,
+      exactly one of contents, src or source, perms as a four digit octal
+      string, exec_timeout only with exec_command, a destination directory
+      other than {{ openbao_agent_forbidden_dest_dirs | join(', ') }}, and
+      only these keys:
+      {{ openbao_agent_template_keys | join(', ') }}.
+      Invalid entries: {{ openbao_agent_invalid_templates | map(attribute='destination', default='<missing destination>') | join(', ') }}
+    quiet: true
+  vars:
+    openbao_agent_invalid_templates: >-
+      {%- set bad = [] -%}
+      {%- for t in openbao_agent_templates -%}
+      {%-   if t is not mapping
+              or t.destination is not defined
+              or t.destination is not string
+              or not t.destination.startswith('/')
+              or (['contents', 'src', 'source'] | select('in', t) | list | length) != 1
+              or (t.keys() | list | difference(openbao_agent_template_keys) | length) > 0
+              or (t.perms is defined and t.perms | string is not match('^0[0-7]{3}$'))
+              or (t.exec_timeout is defined and t.exec_command is not defined)
+              or (t.destination | dirname) in openbao_agent_forbidden_dest_dirs -%}
+      {%-     set _ = bad.append(t if t is mapping else {}) -%}
+      {%-   endif -%}
+      {%- endfor -%}
+      {{ bad }}
+
+- name: Assert | Check template destinations are unique
+  ansible.builtin.assert:
+    that:
+      - (openbao_agent_templates | map(attribute='destination') | list | length)
+        == (openbao_agent_templates | map(attribute='destination') | unique | list | length)
+    fail_msg: "openbao_agent_templates contains duplicate destinations"
+    quiet: true
+
+- name: Assert | Check src template file names are unique
+  ansible.builtin.assert:
+    that:
+      - (openbao_agent_templates | selectattr('src', 'defined') | map(attribute='src') | map('basename') | list | length)
+        == (openbao_agent_templates | selectattr('src', 'defined') | map(attribute='src') | map('basename') | unique | list | length)
+    fail_msg: "openbao_agent_templates src files must have unique file names"
+    quiet: true
+
+- name: Assert | Check file modes
+  ansible.builtin.assert:
+    that:
+      - openbao_agent_token_sink_mode | string is match('^0[0-7]{3}$')
+      - openbao_agent_template_default_perms | string is match('^0[0-7]{3}$')
+    fail_msg: "openbao_agent_token_sink_mode and openbao_agent_template_default_perms must be four digit octal strings such as 0640"
+    quiet: true
+
+- name: Assert | Check openbao_agent_listener_address
+  ansible.builtin.assert:
+    that:
+      - openbao_agent_listener_address | length == 0
+        or openbao_agent_listener_allow_nonlocal | bool
+        or openbao_agent_listener_address is match('^(127\.[0-9.]+|localhost|\[::1\]):[0-9]+$')
+    fail_msg: >-
+      openbao_agent_listener_address must be a loopback address such as
+      127.0.0.1:8100; set openbao_agent_listener_allow_nonlocal to expose it
+    quiet: true
+
+- name: Assert | Check service options
+  ansible.builtin.assert:
+    that:
+      - openbao_agent_service_enabled is boolean
+      - openbao_agent_service_state in ['started', 'stopped', 'restarted']
+    quiet: true

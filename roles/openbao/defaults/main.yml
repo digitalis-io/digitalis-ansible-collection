@@ -1,0 +1,28 @@
+---
+# Version of the OpenBao package to install. Must exist in the
+# pkgs.openbao.org repository for the target architecture.
+openbao_version: "2.7.1"
+
+# Manage the upstream package repository. Set to false when the package is
+# served from an internal mirror that is already configured on the host.
+openbao_manage_repository: true
+
+# Location of the OpenBao package signing key.
+openbao_gpg_key_url: "https://openbao.org/assets/openbao-gpg-pub-20240618.asc"
+
+# Validate TLS certificates when downloading the signing key.
+openbao_validate_certs: true
+
+openbao_apt_repository_uri: "https://pkgs.openbao.org/deb"
+openbao_apt_repository_suite: "stable"
+openbao_apt_repository_components: "main"
+
+openbao_yum_repository_baseurl: "https://pkgs.openbao.org/rpm/$basearch"
+
+# Manage the openbao server service. When false the role only installs the
+# package and leaves the service as the package created it (disabled and
+# stopped on a fresh install). The package ships a working default
+# configuration: pebbledb storage and self-signed TLS on 0.0.0.0:8200.
+openbao_service_manage: false
+openbao_service_enabled: true
+openbao_service_state: started

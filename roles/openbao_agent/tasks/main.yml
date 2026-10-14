@@ -1,0 +1,22 @@
+---
+- name: Validate role variables
+  ansible.builtin.import_tasks:
+    file: assert.yml
+
+- name: Install OpenBao
+  ansible.builtin.include_role:
+    name: openbao
+  vars:
+    openbao_service_manage: false
+  when: openbao_agent_install
+
+- name: Configure OpenBao Agent
+  ansible.builtin.import_tasks:
+    file: configure.yml
+
+- name: Manage OpenBao Agent service
+  ansible.builtin.systemd_service:
+    name: "{{ openbao_agent_service_name }}"
+    enabled: "{{ openbao_agent_service_enabled }}"
+    state: "{{ openbao_agent_service_state }}"
+    daemon_reload: true

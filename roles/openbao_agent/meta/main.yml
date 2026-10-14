@@ -1,0 +1,29 @@
+---
+galaxy_info:
+  author: Digitalis.IO DevOps Team
+  role_name: openbao_agent
+  namespace: digitalis
+  description: Install and configure OpenBao Agent to render secrets to files with auto-auth.
+  license: Apache-2.0
+  company: Digitalis.IO
+  min_ansible_version: "2.16"
+  platforms:
+    - name: EL
+      versions:
+        - "9"
+        - "10"
+    - name: Debian
+      versions:
+        - bookworm
+        - trixie
+    - name: Ubuntu
+      versions:
+        - jammy
+        - noble
+  galaxy_tags:
+    - openbao
+    - vault
+    - agent
+    - secrets
+    - security
+dependencies: []

@@ -1,0 +1,33 @@
+---
+# Applies the role with openbao_agent_test_case.vars and requires it to fail with a
+# message containing openbao_agent_test_case.expect.
+- name: "Reject {{ openbao_agent_test_case.name }}"
+  block:
+    - name: "Apply openbao_agent with {{ openbao_agent_test_case.name }}"
+      ansible.builtin.include_role:
+        name: openbao_agent
+      vars:
+        openbao_agent_install: false
+        openbao_agent_address: "{{ openbao_agent_test_case.vars.address | default('https://openbao.example.com:8200') }}"
+        openbao_agent_auth_method: "{{ openbao_agent_test_case.vars.auth_method | default('approle') }}"
+        openbao_agent_approle_role_id: "{{ openbao_agent_test_case.vars.role_id | default('role') }}"
+        openbao_agent_approle_secret_id: "{{ openbao_agent_test_case.vars.secret_id | default('secret') }}"
+        openbao_agent_templates: "{{ openbao_agent_test_case.vars.templates | default([]) }}"
+        openbao_agent_token_sink_mode: "{{ openbao_agent_test_case.vars.sink_mode | default('0640') }}"
+        openbao_agent_listener_address: "{{ openbao_agent_test_case.vars.listener | default('') }}"
+
+    - name: Fail because the role accepted invalid input
+      ansible.builtin.fail:
+        msg: "openbao_agent accepted {{ openbao_agent_test_case.name }}"
+
+  rescue:
+    - name: Re-raise when the role accepted invalid input
+      ansible.builtin.fail:
+        msg: "{{ ansible_failed_result.msg }}"
+      when: ansible_failed_task.name == 'Fail because the role accepted invalid input'
+
+    - name: "Assert the failure explains {{ openbao_agent_test_case.name }}"
+      ansible.builtin.assert:
+        that:
+          - openbao_agent_test_case.expect in ansible_failed_result.msg
+        fail_msg: "Expected '{{ openbao_agent_test_case.expect }}' in: {{ ansible_failed_result.msg }}"

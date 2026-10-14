@@ -1,0 +1,117 @@
+---
+- name: Configure | Create agent group
+  ansible.builtin.group:
+    name: "{{ openbao_agent_group }}"
+    system: true
+    state: present
+
+- name: Configure | Create agent user
+  ansible.builtin.user:
+    name: "{{ openbao_agent_user }}"
+    group: "{{ openbao_agent_group }}"
+    system: true
+    shell: /bin/false
+    create_home: false
+    state: present
+
+- name: Configure | Create configuration directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: "{{ openbao_agent_group }}"
+    mode: "0750"
+  loop:
+    - "{{ openbao_agent_config_dir }}"
+    - "{{ openbao_agent_config_dir }}/templates"
+
+- name: Configure | Create data directory
+  ansible.builtin.file:
+    path: "{{ openbao_agent_data_dir }}"
+    state: directory
+    owner: "{{ openbao_agent_user }}"
+    group: "{{ openbao_agent_group }}"
+    mode: "0750"
+
+# Existing directories are left alone so the role never takes ownership of
+# shared paths such as /etc; missing ones are created for the agent user.
+- name: Configure | Check template destination directories
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop: "{{ openbao_agent_template_dest_dirs }}"
+  register: openbao_agent_dest_dir_stat
+
+- name: Configure | Create missing template destination directories
+  ansible.builtin.file:
+    path: "{{ item.item }}"
+    state: directory
+    owner: "{{ openbao_agent_user }}"
+    group: "{{ openbao_agent_group }}"
+    mode: "0750"
+  loop: "{{ openbao_agent_dest_dir_stat.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when: not item.stat.exists
+
+- name: Configure | Write AppRole role_id
+  ansible.builtin.copy:
+    content: "{{ openbao_agent_approle_role_id }}"
+    dest: "{{ openbao_agent_config_dir }}/role_id"
+    owner: "{{ openbao_agent_user }}"
+    group: "{{ openbao_agent_group }}"
+    mode: "0600"
+  when: openbao_agent_auth_method == 'approle'
+  no_log: true
+  notify: Restart openbao-agent
+
+- name: Configure | Write AppRole secret_id
+  ansible.builtin.copy:
+    content: "{{ openbao_agent_approle_secret_id }}"
+    dest: "{{ openbao_agent_config_dir }}/secret_id"
+    owner: "{{ openbao_agent_user }}"
+    group: "{{ openbao_agent_group }}"
+    mode: "0600"
+  when: openbao_agent_auth_method == 'approle'
+  no_log: true
+  notify: Restart openbao-agent
+
+- name: Configure | Write auth token
+  ansible.builtin.copy:
+    content: "{{ openbao_agent_token }}"
+    dest: "{{ openbao_agent_config_dir }}/token"
+    owner: "{{ openbao_agent_user }}"
+    group: "{{ openbao_agent_group }}"
+    mode: "0600"
+  when: openbao_agent_auth_method == 'token_file'
+  no_log: true
+  notify: Restart openbao-agent
+
+- name: Configure | Copy template source files
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ openbao_agent_config_dir }}/templates/{{ item.src | basename }}"
+    owner: root
+    group: "{{ openbao_agent_group }}"
+    mode: "0640"
+  loop: "{{ openbao_agent_templates | selectattr('src', 'defined') | list }}"
+  loop_control:
+    label: "{{ item.src }}"
+  notify: Restart openbao-agent
+
+- name: Configure | Write agent configuration
+  ansible.builtin.template:
+    src: agent.hcl.j2
+    dest: "{{ openbao_agent_config_dir }}/agent.hcl"
+    owner: root
+    group: "{{ openbao_agent_group }}"
+    mode: "0640"
+  notify: Restart openbao-agent
+
+- name: Configure | Install systemd unit
+  ansible.builtin.template:
+    src: openbao-agent.service.j2
+    dest: "/etc/systemd/system/{{ openbao_agent_service_name }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart openbao-agent

@@ -1,0 +1,74 @@
+---
+# Runs a throwaway OpenBao dev server inside the test container so the agent
+# can authenticate and render real secrets. The dev server keeps everything in
+# memory and dies with the container. Its fixed root token is test-only.
+- name: Prepare
+  hosts: all
+  gather_facts: true
+  environment:
+    BAO_ADDR: "{{ openbao_agent_test_bao_addr }}"
+    BAO_TOKEN: "{{ openbao_agent_test_bao_token }}"
+  tasks:
+    - name: Install OpenBao for the dev server
+      ansible.builtin.include_role:
+        name: openbao
+
+    - name: Check whether the dev server is running
+      ansible.builtin.uri:
+        url: "{{ openbao_agent_test_bao_addr }}/v1/sys/health"
+      register: openbao_agent_test_bao_dev_active
+      failed_when: false
+
+    - name: Start the dev server as a transient unit
+      ansible.builtin.command: >-
+        systemd-run --unit=openbao-dev /usr/bin/bao server -dev
+        -dev-root-token-id={{ openbao_agent_test_bao_token }}
+        -dev-listen-address={{ openbao_agent_test_bao_addr | urlsplit('netloc') }}
+      changed_when: true
+      when: openbao_agent_test_bao_dev_active.status != 200
+
+    - name: Wait for the dev server
+      ansible.builtin.uri:
+        url: "{{ openbao_agent_test_bao_addr }}/v1/sys/health"
+      register: openbao_agent_test_bao_health
+      retries: 30
+      delay: 1
+      until: openbao_agent_test_bao_health.status == 200
+
+    - name: Enable AppRole auth
+      ansible.builtin.command: bao auth enable approle
+      register: openbao_agent_test_bao_approle
+      changed_when: openbao_agent_test_bao_approle.rc == 0
+      failed_when: openbao_agent_test_bao_approle.rc != 0 and 'path is already in use' not in openbao_agent_test_bao_approle.stderr
+
+    - name: Write the application secret
+      ansible.builtin.command: bao kv put -mount=secret app username=app password=s3cr3t-one
+      changed_when: true
+
+    - name: Write the agent policy
+      ansible.builtin.shell: |
+        set -o pipefail
+        printf 'path "secret/data/app" {\n  capabilities = ["read"]\n}\n' | bao policy write app-read -
+      args:
+        executable: /bin/bash
+      changed_when: true
+
+    - name: Create the agent AppRole
+      ansible.builtin.command: bao write auth/approle/role/agent token_policies=app-read token_ttl=1h
+      changed_when: true
+
+    - name: Read the role ID
+      ansible.builtin.command: bao read -field=role_id auth/approle/role/agent/role-id
+      register: openbao_agent_test_role_id
+      changed_when: false
+
+    - name: Generate a secret ID
+      ansible.builtin.command: bao write -f -field=secret_id auth/approle/role/agent/secret-id
+      register: openbao_agent_test_secret_id
+      changed_when: true
+
+    - name: Store the AppRole credentials for converge
+      ansible.builtin.copy:
+        content: "{{ {'role_id': openbao_agent_test_role_id.stdout, 'secret_id': openbao_agent_test_secret_id.stdout} | to_json }}"
+        dest: /root/molecule-approle.json
+        mode: "0600"

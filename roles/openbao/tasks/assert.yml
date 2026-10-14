@@ -1,0 +1,31 @@
+---
+- name: Assert | Check the operating system family is supported
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['os_family'] in openbao_supported_os_families
+    fail_msg: "Unsupported OS family {{ ansible_facts['os_family'] }}; supported: {{ openbao_supported_os_families | join(', ') }}"
+    quiet: true
+
+- name: Assert | Check openbao_version
+  ansible.builtin.assert:
+    that:
+      - openbao_version is string
+      - openbao_version is match('^[0-9]+\.[0-9]+\.[0-9]+([-~.+][0-9A-Za-z.~+-]+)?$')
+    fail_msg: "openbao_version must be a package version string such as 2.7.1, got '{{ openbao_version }}'"
+    quiet: true
+
+- name: Assert | Check boolean options
+  ansible.builtin.assert:
+    that:
+      - openbao_manage_repository is boolean
+      - openbao_validate_certs is boolean
+      - openbao_service_manage is boolean
+      - openbao_service_enabled is boolean
+    quiet: true
+
+- name: Assert | Check openbao_service_state
+  ansible.builtin.assert:
+    that:
+      - openbao_service_state in ['started', 'stopped', 'restarted']
+    fail_msg: "openbao_service_state must be one of started, stopped, restarted"
+    quiet: true
