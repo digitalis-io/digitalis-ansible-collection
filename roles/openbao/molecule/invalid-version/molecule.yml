@@ -23,6 +23,7 @@ provisioner:
     verify: verify.yml
 scenario:
   test_sequence:
+    - dependency
     - destroy
     - create
     - converge
