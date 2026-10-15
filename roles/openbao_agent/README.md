@@ -4,6 +4,10 @@
   </a>
 </p>
 
+<p align="center">
+  <em>Built and maintained by <a href="https://digitalis.io">Digitalis.io</a></em>
+</p>
+
 # openbao_agent
 
 Install [OpenBao Agent](https://openbao.org/docs/agent-and-proxy/agent/) as a
@@ -47,7 +51,7 @@ Template file from the controller, reloading the service that consumes it:
 ```yaml
 openbao_agent_templates:
   - destination: /etc/nginx/tls/server.pem
-    src: templates/server.pem.ctmpl
+    src: files/server.pem.ctmpl
     perms: "0640"
     exec_command: ["systemctl", "reload", "nginx"]
     exec_timeout: 30s
@@ -71,7 +75,7 @@ openbao_agent_listener_address: 127.0.0.1:8100
 |----------|------|---------|---------|
 | `openbao_agent_address` | str | `""` (required) | `https://openbao.example.com:8200` |
 | `openbao_agent_auth_method` | str | `approle` | `token_file` |
-| `openbao_agent_auth_mount_path` | str | `auth/approle` | `auth/approle-apps` |
+| `openbao_agent_auth_mount_path` | str | `auth/approle` | `auth/approle-apps` (approle only) |
 | `openbao_agent_approle_role_id` | str | `""` | vaulted value |
 | `openbao_agent_approle_secret_id` | str | `""` | vaulted value |
 | `openbao_agent_token` | str | `""` | vaulted value |
@@ -84,7 +88,7 @@ openbao_agent_listener_address: 127.0.0.1:8100
 | `openbao_agent_retry_num_retries` | int | `12` | `5` |
 | `openbao_agent_log_level` | str | `info` | `debug` |
 | `openbao_agent_token_sink_enabled` | bool | `true` | `false` |
-| `openbao_agent_token_sink_path` | path | `/var/lib/openbao-agent/agent-token` | `/run/myapp/token` |
+| `openbao_agent_token_sink_path` | path | `<data_dir>/agent-token` | `/var/lib/myapp/token` |
 | `openbao_agent_token_sink_mode` | str | `0640` | `0600` |
 | `openbao_agent_listener_address` | str | `""` | `127.0.0.1:8100` |
 | `openbao_agent_listener_allow_nonlocal` | bool | `false` | `true` |
@@ -126,7 +130,9 @@ Destinations directly in `/`, `/etc`, `/usr`, `/var` or `/boot` are refused;
 use a subdirectory. Set `openbao_agent_group` to the group of the consuming
 service so it can read the rendered files and their directories. The systemd
 unit uses `ProtectSystem=strict` and grants write access only to the data
-directory and the template destination directories.
+directory, the token sink directory and the template destination
+directories. A token sink outside the data directory must be in a directory
+that already exists and is writable by the agent user.
 
 ## Supported platforms
 

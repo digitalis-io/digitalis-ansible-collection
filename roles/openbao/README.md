@@ -4,6 +4,10 @@
   </a>
 </p>
 
+<p align="center">
+  <em>Built and maintained by <a href="https://digitalis.io">Digitalis.io</a></em>
+</p>
+
 # openbao
 
 Install the OpenBao server package from the upstream repository on Red Hat Enterprise Linux, Debian and Ubuntu.
