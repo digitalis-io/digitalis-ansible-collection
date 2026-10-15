@@ -21,7 +21,7 @@ jobs:
 
   build:
     name: Build collection
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     needs: [lint, openbao, openbao-agent]
     steps:
       - name: Check out the codebase
@@ -58,7 +58,7 @@ jobs:
 
   github-release:
     name: Create GitHub release
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     needs: build
     permissions:
       contents: write
@@ -84,7 +84,7 @@ jobs:
 
   publish:
     name: Publish to Ansible Galaxy
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     needs: github-release
     if: ${{ !contains(github.ref_name, '-') }}
     steps:
@@ -102,7 +102,15 @@ jobs:
       - name: Install ansible-core
         run: pip3 install ansible-core
 
-      - name: Publish the collection
-        env:
-          GALAXY_API_KEY: ${{ secrets.GALAXY_API_KEY }}
-        run: ansible-galaxy collection publish dist/*.tar.gz --api-key "$GALAXY_API_KEY"
+      # - name: Publish the collection
+      #   env:
+      #     GALAXY_API_KEY: ${{ secrets.GALAXY_API_KEY }}
+      #   run: ansible-galaxy collection publish dist/*.tar.gz --api-key "$GALAXY_API_KEY"
+
+      - name: Publish to Ansible Galaxy Using API
+        run: |
+          curl -X 'POST' \
+            "https://galaxy.ansible.com/api/v1/imports/" \
+            -H 'Content-Type: application/json' \
+            -H "Authorization: Token ${{ secrets.GALAXY_API_KEY }}" \
+            --data-raw '{"github_repo": "digitalis-ansible-collection", "github_user": "digitalis", "alternate_clone_url": "https://github.com/digitalis-io/digitalis-ansible-collection"}'
