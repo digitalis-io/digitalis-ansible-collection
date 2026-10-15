@@ -7,3 +7,4 @@ exclude_paths:
 kinds:
   - tasks: "**/molecule/*/apply-role.yml"
   - tasks: "**/molecule/*/expect-rejection.yml"
+  - vars: "**/molecule/*/vars.yml"

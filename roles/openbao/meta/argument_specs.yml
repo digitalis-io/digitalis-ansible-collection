@@ -1,7 +1,7 @@
 ---
 argument_specs:
   main:
-    short_description: Install the OpenBao server package.
+    short_description: Install and configure the OpenBao server.
     description:
       - Configures the upstream OpenBao package repository and installs the
         OpenBao package on Red Hat Enterprise Linux (and rebuilds), Debian and
@@ -53,3 +53,74 @@ argument_specs:
         default: started
         choices: [started, stopped, restarted]
         description: State of the C(openbao) server service.
+      openbao_config_manage:
+        type: bool
+        default: false
+        description:
+          - Render C(/etc/openbao/openbao.hcl) from the options below. When false the packaged configuration is left untouched.
+          - The rendered file is checked with C(bao operator validate-config) before it replaces the current one.
+      openbao_ui:
+        type: bool
+        default: true
+        description: Enable the web UI.
+      openbao_api_addr:
+        type: str
+        default: ""
+        description: Address advertised to clients. Omitted when empty.
+      openbao_cluster_addr:
+        type: str
+        default: ""
+        description: Address advertised to other cluster members. Omitted when empty. Required by raft storage.
+      openbao_storage_type:
+        type: str
+        default: pebbledb
+        description: Storage backend type.
+      openbao_storage_config:
+        type: dict
+        default:
+          path: /opt/openbao/data
+        description: Options for the storage block.
+      openbao_listeners:
+        type: list
+        elements: dict
+        default:
+          - type: tcp
+            address: "0.0.0.0:8200"
+            tls_cert_file: /opt/openbao/tls/tls.crt
+            tls_key_file: /opt/openbao/tls/tls.key
+        description:
+          - Listener blocks. C(type) is C(tcp) (default) or C(unix) and C(address) is required.
+          - Every other key is written as a listener option; nested mappings become nested blocks.
+      openbao_telemetry:
+        type: dict
+        default: {}
+        description: Options for the telemetry block. Omitted when empty.
+      openbao_plugins:
+        type: list
+        elements: dict
+        default: []
+        description:
+          - Declarative plugins. Each item needs C(type) (C(secret), C(auth) or C(database)), C(name), C(version) and exactly one of C(image) or C(command).
+          - C(image) must be pinned by digest or paired with C(sha256sum).
+          - Optional keys are C(sha256sum), C(binary_name), C(args) and C(env). Requires O(openbao_config_manage).
+      openbao_plugin_directory:
+        type: str
+        default: /opt/openbao/plugins
+        description: Plugin directory, created for the C(openbao) user when O(openbao_plugins) is not empty.
+      openbao_plugin_auto_download:
+        type: bool
+        default: true
+        description: Download OCI plugins at startup and on reload.
+      openbao_plugin_auto_register:
+        type: bool
+        default: true
+        description: Register declared plugins in the catalog at startup and on reload.
+      openbao_plugin_download_behavior:
+        type: str
+        default: fail
+        choices: [fail, warn]
+        description: Whether a failed plugin download stops the server from starting.
+      openbao_extra_config:
+        type: str
+        default: ""
+        description: Raw HCL appended to the server configuration.

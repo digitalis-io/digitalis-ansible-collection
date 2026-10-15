@@ -29,3 +29,125 @@
       - openbao_service_state in ['started', 'stopped', 'restarted']
     fail_msg: "openbao_service_state must be one of started, stopped, restarted"
     quiet: true
+
+- name: Assert | Check openbao_config_manage
+  ansible.builtin.assert:
+    that:
+      - openbao_config_manage is boolean
+    fail_msg: "openbao_config_manage must be a boolean"
+    quiet: true
+
+- name: Assert | Check server configuration options
+  ansible.builtin.assert:
+    that:
+      - openbao_ui is boolean
+      - openbao_api_addr is string
+      - openbao_cluster_addr is string
+      - openbao_storage_config is mapping
+      - openbao_telemetry is mapping
+      - openbao_extra_config is string
+    fail_msg: >-
+      openbao_ui must be a boolean, openbao_storage_config and openbao_telemetry
+      mappings, and openbao_api_addr, openbao_cluster_addr and
+      openbao_extra_config strings
+    quiet: true
+  when: openbao_config_manage
+
+- name: Assert | Check openbao_storage_type
+  ansible.builtin.assert:
+    that:
+      - openbao_storage_type is string
+      - openbao_storage_type | length > 0
+    fail_msg: "openbao_storage_type must be a non-empty string such as pebbledb or raft"
+    quiet: true
+  when: openbao_config_manage
+
+- name: Assert | Check listeners
+  ansible.builtin.assert:
+    that:
+      - openbao_listeners is sequence
+      - openbao_listeners is not string
+      - openbao_listeners | length > 0
+      - openbao_invalid_listeners | int == 0
+    fail_msg: "openbao_listeners must be a non-empty list of mappings, each with type tcp or unix and a non-empty address"
+    quiet: true
+  vars:
+    openbao_invalid_listeners: >-
+      {%- set bad = [] -%}
+      {%- for l in openbao_listeners -%}
+      {%-   if l is not mapping
+              or l.address is not defined or l.address is not string or l.address | length == 0
+              or (l.type | default('tcp')) not in ['tcp', 'unix'] -%}
+      {%-     set _ = bad.append(1) -%}
+      {%-   endif -%}
+      {%- endfor -%}
+      {{ bad | length }}
+  when: openbao_config_manage
+
+- name: Assert | Check plugins
+  ansible.builtin.assert:
+    that:
+      - openbao_plugins is sequence
+      - openbao_plugins is not string
+      - openbao_invalid_plugins | length == 0
+    fail_msg: >-
+      Each entry in openbao_plugins needs type ({{ openbao_plugin_types | join(', ') }}),
+      name, version, exactly one of image or command, sha256sum as 64 hex
+      characters, sha256sum or a digest-pinned image, args and env as lists,
+      and only these keys: {{ openbao_plugin_keys | join(', ') }}.
+      Invalid entries: {{ openbao_invalid_plugins | map(attribute='name', default='<missing name>') | join(', ') }}
+    quiet: true
+  vars:
+    openbao_invalid_plugins: >-
+      {%- set bad = [] -%}
+      {%- for p in openbao_plugins -%}
+      {%-   if p is not mapping
+              or p.type is not defined or p.type not in openbao_plugin_types
+              or p.name is not defined or p.name is not string or p.name | length == 0
+              or p.version is not defined or p.version is not string or p.version | length == 0
+              or (['image', 'command'] | select('in', p) | list | length) != 1
+              or (p.keys() | list | difference(openbao_plugin_keys) | length) > 0
+              or (p.sha256sum is defined and p.sha256sum | string is not match('^[0-9a-f]{64}$'))
+              or (p.image is defined and '@sha256:' not in p.image | string and p.sha256sum is not defined)
+              or (p.args is defined and (p.args is string or p.args is not sequence))
+              or (p.env is defined and (p.env is string or p.env is not sequence)) -%}
+      {%-     set _ = bad.append(p if p is mapping else {}) -%}
+      {%-   endif -%}
+      {%- endfor -%}
+      {{ bad }}
+
+- name: Assert | Check plugin names are unique per type
+  ansible.builtin.assert:
+    that:
+      - (openbao_plugins | map(attribute='type') | zip(openbao_plugins | map(attribute='name')) | map('join', '/') | list | length)
+        == (openbao_plugins | map(attribute='type') | zip(openbao_plugins | map(attribute='name')) | map('join', '/') | unique | list | length)
+    fail_msg: "openbao_plugins contains the same type and name more than once"
+    quiet: true
+
+- name: Assert | Check plugins are only used with a managed configuration
+  ansible.builtin.assert:
+    that:
+      - openbao_plugins | length == 0 or openbao_config_manage
+    fail_msg: "openbao_plugins requires openbao_config_manage"
+    quiet: true
+
+- name: Assert | Check plugin options
+  ansible.builtin.assert:
+    that:
+      - openbao_plugin_directory is string
+      - openbao_plugin_directory.startswith('/')
+      - openbao_plugin_auto_download is boolean
+      - openbao_plugin_auto_register is boolean
+    fail_msg: >-
+      openbao_plugin_directory must be an absolute path, and
+      openbao_plugin_auto_download and openbao_plugin_auto_register booleans
+    quiet: true
+  when: openbao_plugins | length > 0
+
+- name: Assert | Check openbao_plugin_download_behavior
+  ansible.builtin.assert:
+    that:
+      - openbao_plugin_download_behavior in ['fail', 'warn']
+    fail_msg: "openbao_plugin_download_behavior must be fail or warn"
+    quiet: true
+  when: openbao_plugins | length > 0

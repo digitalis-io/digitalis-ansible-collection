@@ -1,0 +1,56 @@
+{% macro hcl_body(options, indent) -%}
+{% for key, value in options.items() %}
+{% if value is mapping %}
+{{ ' ' * indent }}{{ key }} {
+{{ hcl_body(value, indent + 2) }}{{ ' ' * indent }}}
+{% elif value is sequence and value is not string and value | length > 0 and value | select('mapping') | list | length == value | length %}
+{% for item in value %}
+{{ ' ' * indent }}{{ key }} {
+{{ hcl_body(item, indent + 2) }}{{ ' ' * indent }}}
+{% endfor %}
+{% else %}
+{{ ' ' * indent }}{{ key }} = {{ value | to_json }}
+{% endif %}
+{% endfor %}
+{%- endmacro %}
+# {{ ansible_managed }}
+
+ui = {{ openbao_ui | bool | to_json }}
+{% if openbao_api_addr | length > 0 %}
+api_addr = {{ openbao_api_addr | to_json }}
+{% endif %}
+{% if openbao_cluster_addr | length > 0 %}
+cluster_addr = {{ openbao_cluster_addr | to_json }}
+{% endif %}
+
+storage {{ openbao_storage_type | to_json }} {
+{{ hcl_body(openbao_storage_config, 2) }}}
+{% for listener in openbao_listeners %}
+
+listener {{ listener.type | default('tcp') | to_json }} {
+{{ hcl_body(listener | dict2items | rejectattr('key', 'eq', 'type') | items2dict, 2) }}}
+{% endfor %}
+{% if openbao_telemetry | length > 0 %}
+
+telemetry {
+{{ hcl_body(openbao_telemetry, 2) }}}
+{% endif %}
+{% if openbao_plugins | length > 0 %}
+
+plugin_directory         = {{ openbao_plugin_directory | to_json }}
+plugin_auto_download     = {{ openbao_plugin_auto_download | bool | to_json }}
+plugin_auto_register     = {{ openbao_plugin_auto_register | bool | to_json }}
+plugin_download_behavior = {{ openbao_plugin_download_behavior | to_json }}
+{% for plugin in openbao_plugins %}
+
+plugin {{ plugin.type | to_json }} {{ plugin.name | to_json }} {
+{% for key in ['image', 'command', 'version', 'sha256sum', 'binary_name', 'args', 'env'] if plugin[key] is defined %}
+  {{ key }} = {{ plugin[key] | to_json }}
+{% endfor %}
+}
+{% endfor %}
+{% endif %}
+{% if openbao_extra_config | length > 0 %}
+
+{{ openbao_extra_config }}
+{% endif %}

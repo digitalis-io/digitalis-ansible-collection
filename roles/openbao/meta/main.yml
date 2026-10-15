@@ -3,7 +3,7 @@ galaxy_info:
   author: Digitalis.IO DevOps Team
   role_name: openbao
   namespace: digitalis
-  description: Install the OpenBao server package on Red Hat, Debian and Ubuntu.
+  description: Install and configure the OpenBao server on Red Hat, Debian and Ubuntu.
   license: Apache-2.0
   company: Digitalis.IO
   min_ansible_version: "2.16"

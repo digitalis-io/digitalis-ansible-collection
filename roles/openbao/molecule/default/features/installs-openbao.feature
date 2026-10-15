@@ -11,6 +11,7 @@ Feature: Install the OpenBao server
   Scenario: The requested OpenBao version is installed from the upstream repository
     Then the OpenBao package repository is configured
     And the installed OpenBao version is the requested version
+    And the configuration shipped by the package is left in place
 
   Scenario: The OpenBao server runs as a system service
     Then the OpenBao service is enabled and running

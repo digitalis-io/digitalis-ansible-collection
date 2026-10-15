@@ -1,0 +1,29 @@
+---
+openbao_service_manage: true
+openbao_config_manage: true
+openbao_api_addr: "http://127.0.0.1:8200"
+openbao_cluster_addr: "http://127.0.0.1:8201"
+openbao_storage_type: raft
+openbao_storage_config:
+  path: /opt/openbao/data
+  node_id: molecule
+  retry_join:
+    - leader_api_addr: "http://127.0.0.1:8200"
+openbao_listeners:
+  - address: "127.0.0.1:8200"
+    cluster_address: "127.0.0.1:8201"
+    tls_disable: true
+    telemetry:
+      unauthenticated_metrics_access: true
+openbao_telemetry:
+  disable_hostname: true
+  prometheus_retention_time: 24h
+openbao_plugins:
+  - type: secret
+    name: aws
+    image: ghcr.io/openbao/openbao-plugin-secrets-aws:v0.1.0@sha256:ffff79125690e9a1f4cfd3e6d851657386a97c2e96e8d66a82adddb53e0b7359
+    version: v0.1.0
+    env:
+      - AWS_EC2_METADATA_DISABLED=true
+openbao_extra_config: |
+  log_level = "info"

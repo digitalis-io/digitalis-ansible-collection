@@ -1,0 +1,31 @@
+---
+# Applies the role with openbao_test_case.vars and requires it to fail with a
+# message containing openbao_test_case.expect.
+- name: "Reject {{ openbao_test_case.name }}"
+  block:
+    - name: "Apply openbao with {{ openbao_test_case.name }}"
+      ansible.builtin.include_role:
+        name: openbao
+      vars:
+        openbao_config_manage: "{{ openbao_test_case.vars.config_manage | default(true) }}"
+        openbao_storage_type: "{{ openbao_test_case.vars.storage_type | default('pebbledb') }}"
+        openbao_listeners: "{{ openbao_test_case.vars.listeners | default([{'address': '127.0.0.1:8200', 'tls_disable': true}]) }}"
+        openbao_plugins: "{{ openbao_test_case.vars.plugins | default([]) }}"
+        openbao_plugin_download_behavior: "{{ openbao_test_case.vars.download_behavior | default('fail') }}"
+        openbao_extra_config: "{{ openbao_test_case.vars.extra_config | default('') }}"
+
+    - name: Fail because the role accepted invalid input
+      ansible.builtin.fail:
+        msg: "openbao accepted {{ openbao_test_case.name }}"
+
+  rescue:
+    - name: Re-raise when the role accepted invalid input
+      ansible.builtin.fail:
+        msg: "{{ ansible_failed_result.msg }}"
+      when: ansible_failed_task.name == 'Fail because the role accepted invalid input'
+
+    - name: "Assert the failure explains {{ openbao_test_case.name }}"
+      ansible.builtin.assert:
+        that:
+          - openbao_test_case.expect in ansible_failed_result.msg
+        fail_msg: "Expected '{{ openbao_test_case.expect }}' in: {{ ansible_failed_result.msg }}"

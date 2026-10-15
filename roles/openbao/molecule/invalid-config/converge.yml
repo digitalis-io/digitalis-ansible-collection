@@ -1,0 +1,95 @@
+---
+- name: Converge
+  hosts: all
+  gather_facts: true
+  vars:
+    openbao_test_image: ghcr.io/openbao/openbao-plugin-secrets-aws:v0.1.0@sha256:ffff79125690e9a1f4cfd3e6d851657386a97c2e96e8d66a82adddb53e0b7359
+    openbao_test_variable_cases:
+      - name: an empty listener list
+        vars: { listeners: [] }
+        expect: openbao_listeners must be
+      - name: a listener without an address
+        vars: { listeners: [{ tls_disable: true }] }
+        expect: openbao_listeners must be
+      - name: a listener with an empty address
+        vars: { listeners: [{ address: "" }] }
+        expect: openbao_listeners must be
+      - name: a listener of an unknown type
+        vars: { listeners: [{ type: udp, address: "127.0.0.1:8200" }] }
+        expect: openbao_listeners must be
+      - name: an empty storage type
+        vars: { storage_type: "" }
+        expect: openbao_storage_type must be a non-empty string
+      - name: a plugin without a version
+        vars: { plugins: [{ type: secret, name: aws, image: "{{ openbao_test_image }}" }] }
+        expect: Each entry in openbao_plugins
+      - name: a plugin with both image and command
+        vars: { plugins: [{ type: secret, name: aws, version: v0.1.0, image: "{{ openbao_test_image }}", command: aws }] }
+        expect: Each entry in openbao_plugins
+      - name: a plugin of an unknown type
+        vars: { plugins: [{ type: storage, name: aws, version: v0.1.0, image: "{{ openbao_test_image }}" }] }
+        expect: Each entry in openbao_plugins
+      - name: an unpinned plugin image without a checksum
+        vars: { plugins: [{ type: secret, name: aws, version: v0.1.0, image: "ghcr.io/openbao/openbao-plugin-secrets-aws:v0.1.0" }] }
+        expect: Each entry in openbao_plugins
+      - name: a plugin checksum that is not 64 hex characters
+        vars: { plugins: [{ type: secret, name: aws, version: v0.1.0, command: aws, sha256sum: abc }] }
+        expect: Each entry in openbao_plugins
+      - name: a plugin with an unknown key
+        vars: { plugins: [{ type: secret, name: aws, version: v0.1.0, command: aws, url: "https://example.com" }] }
+        expect: Each entry in openbao_plugins
+      - name: two plugins with the same type and name
+        vars: { plugins: [{ type: secret, name: aws, version: v0.1.0, command: aws }, { type: secret, name: aws, version: v0.2.0, command: aws }] }
+        expect: same type and name
+      - name: plugins without a managed configuration
+        vars: { config_manage: false, plugins: [{ type: secret, name: aws, version: v0.1.0, command: aws }] }
+        expect: openbao_plugins requires openbao_config_manage
+      - name: an unknown plugin download behaviour
+        vars: { download_behavior: ignore, plugins: [{ type: secret, name: aws, version: v0.1.0, command: aws }] }
+        expect: "must be one of: fail, warn"
+    openbao_test_validation_cases:
+      - name: extra configuration that is not valid HCL
+        vars: { extra_config: "seal \"transit\" {" }
+        expect: failed to validate
+      - name: extra configuration with an unknown option
+        vars: { extra_config: "not_an_option = true" }
+        expect: failed to validate
+  tasks:
+    - name: "Scenario: Invalid variables are rejected before the host is changed | apply the role"
+      ansible.builtin.include_tasks: expect-rejection.yml
+      loop: "{{ openbao_test_variable_cases }}"
+      loop_control:
+        loop_var: openbao_test_case
+        label: "{{ openbao_test_case.name }}"
+
+    - name: "Scenario: Invalid variables are rejected before the host is changed | check the package was not installed"
+      ansible.builtin.command: bao version
+      register: openbao_test_bao_present
+      changed_when: false
+      failed_when: openbao_test_bao_present.rc == 0
+
+    - name: "Scenario: A configuration OpenBao rejects is never installed | install the package with its own configuration"
+      ansible.builtin.include_role:
+        name: openbao
+
+    - name: "Scenario: A configuration OpenBao rejects is never installed | read the packaged configuration"
+      ansible.builtin.slurp:
+        path: /etc/openbao/openbao.hcl
+      register: openbao_test_config_before
+
+    - name: "Scenario: A configuration OpenBao rejects is never installed | apply the role"
+      ansible.builtin.include_tasks: expect-rejection.yml
+      loop: "{{ openbao_test_validation_cases }}"
+      loop_control:
+        loop_var: openbao_test_case
+        label: "{{ openbao_test_case.name }}"
+
+    - name: "Scenario: A configuration OpenBao rejects is never installed | read the configuration again"
+      ansible.builtin.slurp:
+        path: /etc/openbao/openbao.hcl
+      register: openbao_test_config_after
+
+    - name: "Scenario: A configuration OpenBao rejects is never installed | assert the packaged configuration is unchanged"
+      ansible.builtin.assert:
+        that:
+          - openbao_test_config_after.content == openbao_test_config_before.content

@@ -26,3 +26,69 @@ openbao_yum_repository_baseurl: "https://pkgs.openbao.org/rpm/$basearch"
 openbao_service_manage: false
 openbao_service_enabled: true
 openbao_service_state: started
+
+# Render /etc/openbao/openbao.hcl from the options below. When false the role
+# leaves the configuration shipped by the package untouched. The defaults
+# match the packaged storage, listener and UI settings. The rendered file is
+# checked with "bao operator validate-config" before it replaces the current
+# one, and a change restarts the service when openbao_service_manage is true,
+# openbao_service_state is started and the service was already running.
+openbao_config_manage: false
+
+openbao_ui: true
+
+# Advertised addresses, for example https://openbao1.example.com:8200 and
+# https://openbao1.example.com:8201. Empty strings are omitted. Raft storage
+# needs openbao_cluster_addr.
+openbao_api_addr: ""
+openbao_cluster_addr: ""
+
+# Storage backend type and its options, rendered as storage "<type>" { ... }.
+openbao_storage_type: pebbledb
+openbao_storage_config:
+  path: /opt/openbao/data
+
+# Listeners. Each item is rendered as listener "<type>" { ... } with every
+# other key written as an option; type defaults to tcp. Nested mappings become
+# nested blocks.
+openbao_listeners:
+  - type: tcp
+    address: "0.0.0.0:8200"
+    tls_cert_file: /opt/openbao/tls/tls.crt
+    tls_key_file: /opt/openbao/tls/tls.key
+
+# Options for the telemetry block, for example
+# {prometheus_retention_time: 24h, disable_hostname: true}. Empty omits it.
+openbao_telemetry: {}
+
+# Plugins declared in the configuration. Each item needs type (secret, auth
+# or database), name, version and exactly one of:
+#   image:   OCI image reference, downloaded into openbao_plugin_directory.
+#            Pin it by digest (image:tag@sha256:...) or set sha256sum.
+#   command: binary already present in openbao_plugin_directory.
+# Optional keys: sha256sum, binary_name, args (list), env (list of KEY=value).
+# Requires openbao_config_manage. Example:
+#   openbao_plugins:
+#     - type: auth
+#       name: aws
+#       image: ghcr.io/openbao/openbao-plugin-auth-aws
+#       version: v0.1.1
+#       binary_name: openbao-plugin-auth-aws
+#       sha256sum: a8e2262d943e2de54c640c3c85bade0666c10afc41d2bd9a90cb9a0006bef2b8
+#     - type: secret
+#       name: aws
+#       image: ghcr.io/openbao/openbao-plugin-secrets-aws
+#       version: v0.3.1
+#       binary_name: openbao-plugin-secrets-aws
+#       sha256sum: ebe1f8c73005bd17376c03162a270b38965d28d0c97f8b9cae04bf3b6c6a0072
+openbao_plugins: []
+
+# Server plugin options, rendered and the directory created only when
+# openbao_plugins is not empty.
+openbao_plugin_directory: /opt/openbao/plugins
+openbao_plugin_auto_download: true
+openbao_plugin_auto_register: true
+openbao_plugin_download_behavior: fail
+
+# Raw HCL appended to the server configuration, for example a seal stanza.
+openbao_extra_config: ""

@@ -1,0 +1,158 @@
+---
+# Scenario: Applying the role again changes nothing is realised by the
+# Molecule idempotence step.
+- name: Verify
+  hosts: all
+  gather_facts: true
+  vars_files:
+    - vars.yml
+  environment:
+    BAO_ADDR: http://127.0.0.1:8200
+  tasks:
+    - name: "Scenario: The configuration is rendered | stat the configuration"
+      ansible.builtin.stat:
+        path: /etc/openbao/openbao.hcl
+      register: openbao_test_config
+
+    - name: "Scenario: The configuration is rendered | assert ownership and mode"
+      ansible.builtin.assert:
+        that:
+          - openbao_test_config.stat.pw_name == 'root'
+          - openbao_test_config.stat.gr_name == 'openbao'
+          - openbao_test_config.stat.mode == '0640'
+
+    - name: "Scenario: The configuration is rendered | read the configuration"
+      ansible.builtin.slurp:
+        path: /etc/openbao/openbao.hcl
+      register: openbao_test_config_content
+
+    - name: "Scenario: The configuration is rendered | assert requested options are present"
+      ansible.builtin.assert:
+        that:
+          - openbao_test_config_text.startswith('# ' ~ lookup('ansible.builtin.config', 'DEFAULT_MANAGED_STR'))
+          - '''address = "127.0.0.1:8200"'' in openbao_test_config_text'
+          - '''retry_join {'' in openbao_test_config_text'
+          - '''env = ["AWS_EC2_METADATA_DISABLED=true"]'' in openbao_test_config_text'
+          - '''storage "raft"'' in openbao_test_config_text'
+          - '''node_id = "molecule"'' in openbao_test_config_text'
+          - '''prometheus_retention_time = "24h"'' in openbao_test_config_text'
+          - '''log_level = "info"'' in openbao_test_config_text'
+      vars:
+        openbao_test_config_text: "{{ openbao_test_config_content.content | b64decode }}"
+
+    - name: "Scenario: The configuration is rendered | validate the configuration"
+      ansible.builtin.command: bao operator validate-config -config=/etc/openbao/openbao.hcl
+      changed_when: false
+
+    - name: "Scenario: The server starts with the rendered configuration | gather service facts"
+      ansible.builtin.service_facts:
+
+    - name: "Scenario: The server starts with the rendered configuration | assert enabled and running"
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.services['openbao.service'].state == 'running'
+          - ansible_facts.services['openbao.service'].status == 'enabled'
+
+    # sys/health returns 501 when uninitialised; the role does not initialise.
+    - name: "Scenario: The server starts with the rendered configuration | query health endpoint"
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8200/v1/sys/health
+        status_code: [501]
+      register: openbao_test_health
+      retries: 10
+      delay: 2
+      until: openbao_test_health.status == 501
+
+    - name: "Scenario: The server starts with the rendered configuration | assert uninitialised and sealed"
+      ansible.builtin.assert:
+        that:
+          - not openbao_test_health.json.initialized
+          - openbao_test_health.json.sealed
+
+    - name: "Scenario: An OCI plugin is downloaded and registered | stat the plugin directory"
+      ansible.builtin.stat:
+        path: /opt/openbao/plugins
+      register: openbao_test_plugin_dir
+
+    - name: "Scenario: An OCI plugin is downloaded and registered | assert plugin directory ownership"
+      ansible.builtin.assert:
+        that:
+          - openbao_test_plugin_dir.stat.isdir
+          - openbao_test_plugin_dir.stat.pw_name == 'openbao'
+
+    - name: "Scenario: An OCI plugin is downloaded and registered | assert the plugin was downloaded"
+      ansible.builtin.stat:
+        path: /opt/openbao/plugins/secret-aws-v0.1.0
+      register: openbao_test_plugin_bin
+      failed_when: not openbao_test_plugin_bin.stat.exists
+
+    - name: "Scenario: An OCI plugin is downloaded and registered | initialise the server"
+      ansible.builtin.command: bao operator init -key-shares=1 -key-threshold=1 -format=json
+      register: openbao_test_init
+      changed_when: true
+      no_log: true
+
+    - name: "Scenario: An OCI plugin is downloaded and registered | unseal the server"
+      ansible.builtin.command:
+        argv: [bao, operator, unseal, "{{ (openbao_test_init.stdout | from_json).unseal_keys_b64[0] }}"]
+      changed_when: true
+      no_log: true
+
+    - name: "Scenario: An OCI plugin is downloaded and registered | read the plugin from the catalog"
+      ansible.builtin.command: bao plugin info -format=json -version=v0.1.0 secret aws
+      environment:
+        BAO_TOKEN: "{{ (openbao_test_init.stdout | from_json).root_token }}"
+      register: openbao_test_plugin_info
+      changed_when: false
+      no_log: true
+      retries: 10
+      delay: 2
+      until: openbao_test_plugin_info.rc == 0
+
+    - name: "Scenario: An OCI plugin is downloaded and registered | assert the plugin is registered"
+      ansible.builtin.assert:
+        that:
+          - (openbao_test_plugin_info.stdout | from_json).version == 'v0.1.0'
+
+    - name: "Scenario: A configuration change restarts the server | record service start time"
+      ansible.builtin.systemd_service:
+        name: openbao
+      register: openbao_test_started_before
+
+    - name: "Scenario: A configuration change restarts the server | apply the role with a different telemetry setting"
+      ansible.builtin.include_role:
+        name: openbao
+      vars:
+        openbao_telemetry:
+          disable_hostname: true
+          prometheus_retention_time: 12h
+
+    - name: "Scenario: A configuration change restarts the server | flush handlers"
+      ansible.builtin.meta: flush_handlers
+
+    - name: "Scenario: A configuration change restarts the server | read service start time"
+      ansible.builtin.systemd_service:
+        name: openbao
+      register: openbao_test_started_after
+
+    - name: "Scenario: A configuration change restarts the server | assert the service was restarted"
+      ansible.builtin.assert:
+        that:
+          - openbao_test_started_after.status.ActiveEnterTimestampMonotonic | int
+            > openbao_test_started_before.status.ActiveEnterTimestampMonotonic | int
+
+    # The node is initialised now, so after a restart it reports 503 (sealed).
+    - name: "Scenario: A configuration change restarts the server | query health endpoint"
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8200/v1/sys/health
+        status_code: [503]
+      register: openbao_test_health_after
+      retries: 10
+      delay: 2
+      until: openbao_test_health_after.status == 503
+
+    - name: "Scenario: A configuration change restarts the server | assert initialised and sealed"
+      ansible.builtin.assert:
+        that:
+          - openbao_test_health_after.json.initialized
+          - openbao_test_health_after.json.sealed

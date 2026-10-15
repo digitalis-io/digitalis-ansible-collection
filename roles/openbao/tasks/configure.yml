@@ -1,0 +1,28 @@
+---
+- name: Configure | Create plugin directory
+  ansible.builtin.file:
+    path: "{{ openbao_plugin_directory }}"
+    state: directory
+    owner: openbao
+    group: openbao
+    mode: "0750"
+  when: openbao_plugins | length > 0
+
+- name: Configure | Read server service state
+  ansible.builtin.systemd_service:
+    name: openbao
+  register: openbao_service_status
+
+- name: Configure | Record whether the server was running
+  ansible.builtin.set_fact:
+    openbao_service_was_running: "{{ openbao_service_status.status.ActiveState == 'active' }}"
+
+- name: Configure | Write server configuration
+  ansible.builtin.template:
+    src: openbao.hcl.j2
+    dest: "{{ openbao_config_file }}"
+    owner: root
+    group: openbao
+    mode: "0640"
+    validate: bao operator validate-config -config=%s
+  notify: Restart openbao
