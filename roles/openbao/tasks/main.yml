@@ -1,0 +1,26 @@
+---
+- name: Validate role variables
+  ansible.builtin.import_tasks:
+    file: assert.yml
+
+- name: Configure OpenBao package repository
+  ansible.builtin.include_tasks:
+    file: "repo/{{ ansible_facts['os_family'] }}.yml"
+  when: openbao_manage_repository
+
+- name: Install OpenBao package
+  ansible.builtin.package:
+    name: "{{ openbao_package_name }}"
+    state: present
+
+- name: Configure OpenBao server
+  ansible.builtin.import_tasks:
+    file: configure.yml
+  when: openbao_config_manage
+
+- name: Manage OpenBao server service
+  ansible.builtin.systemd_service:
+    name: openbao
+    enabled: "{{ openbao_service_enabled }}"
+    state: "{{ openbao_service_state }}"
+  when: openbao_service_manage

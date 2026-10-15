@@ -1,0 +1,60 @@
+---
+name: OpenBao Agent Molecule
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'roles/openbao_agent/**'
+      - 'roles/openbao/**'
+      - '.github/workflows/openbao-agent-molecule.yml'
+      - 'galaxy.yml'
+      - '.ansible-lint'
+      - '.yamllint'
+  pull_request:
+    paths:
+      - 'roles/openbao_agent/**'
+      - 'roles/openbao/**'
+      - '.github/workflows/openbao-agent-molecule.yml'
+      - 'galaxy.yml'
+      - '.ansible-lint'
+      - '.yamllint'
+
+defaults:
+  run:
+    working-directory: roles/openbao_agent
+
+permissions:
+  contents: read
+
+jobs:
+  molecule:
+    name: Molecule openbao_agent (${{ matrix.scenario }}, ${{ matrix.distro }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        distro: [rockylinux9, rockylinux10, ubuntu2204, ubuntu2404, debian12, debian13]
+        scenario: [default, invalid-config]
+    env:
+      PY_COLORS: "1"
+      ANSIBLE_FORCE_COLOR: "1"
+      MOLECULE_DISTRO: ${{ matrix.distro }}
+      MOLECULE_INSTANCE_NAME: openbao-agent-${{ matrix.scenario }}-${{ matrix.distro }}
+    steps:
+      - name: Check out the codebase
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install test dependencies
+        run: pip3 install ansible-core molecule 'molecule-plugins[docker]' docker
+
+      - name: Run Molecule
+        run: molecule test -s ${{ matrix.scenario }}

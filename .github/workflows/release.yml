@@ -1,0 +1,108 @@
+---
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    uses: ./.github/workflows/lint.yml
+
+  openbao:
+    uses: ./.github/workflows/openbao-molecule.yml
+
+  openbao-agent:
+    uses: ./.github/workflows/openbao-agent-molecule.yml
+
+  build:
+    name: Build collection
+    runs-on: ubuntu-24.04
+    needs: [lint, openbao, openbao-agent]
+    steps:
+      - name: Check out the codebase
+        uses: actions/checkout@v4
+
+      - name: Check the tag is a semantic version
+        run: |
+          if [[ ! "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Tag $GITHUB_REF_NAME is not vMAJOR.MINOR.PATCH" >&2
+            exit 1
+          fi
+
+      - name: Set the collection version from the tag
+        run: |
+          sed -i -E "s/^version: .*/version: ${GITHUB_REF_NAME#v}/" galaxy.yml
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install ansible-core
+        run: pip3 install ansible-core
+
+      - name: Build the collection
+        run: ansible-galaxy collection build --output-path dist
+
+      - name: Upload the collection artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: collection
+          path: dist/*.tar.gz
+          retention-days: 90
+
+  github-release:
+    name: Create GitHub release
+    runs-on: ubuntu-24.04
+    needs: build
+    permissions:
+      contents: write
+    steps:
+      - name: Download the collection artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: collection
+          path: dist
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          prerelease=""
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then
+            prerelease="--prerelease"
+          fi
+          gh release create "$GITHUB_REF_NAME" dist/*.tar.gz \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes $prerelease
+
+  publish:
+    name: Publish to Ansible Galaxy
+    runs-on: ubuntu-24.04
+    needs: github-release
+    if: ${{ !contains(github.ref_name, '-') }}
+    steps:
+      - name: Download the collection artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: collection
+          path: dist
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install ansible-core
+        run: pip3 install ansible-core
+
+      - name: Publish the collection
+        env:
+          GALAXY_API_KEY: ${{ secrets.GALAXY_API_KEY }}
+        run: ansible-galaxy collection publish dist/*.tar.gz --api-key "$GALAXY_API_KEY"

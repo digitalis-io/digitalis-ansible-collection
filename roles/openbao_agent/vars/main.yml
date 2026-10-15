@@ -1,0 +1,29 @@
+---
+openbao_agent_auth_methods:
+  - approle
+  - token_file
+
+openbao_agent_template_keys:
+  - destination
+  - contents
+  - src
+  - source
+  - perms
+  - error_on_missing_key
+  - backup
+  - create_dest_dirs
+  - left_delimiter
+  - right_delimiter
+  - wait_min
+  - wait_max
+  - exec_command
+  - exec_timeout
+
+openbao_agent_forbidden_dest_dirs:
+  - /
+  - /etc
+  - /usr
+  - /var
+  - /boot
+
+openbao_agent_template_dest_dirs: "{{ openbao_agent_templates | map(attribute='destination') | map('dirname') | unique | list }}"

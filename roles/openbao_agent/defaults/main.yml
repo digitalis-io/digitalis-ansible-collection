@@ -1,0 +1,73 @@
+---
+# Install the OpenBao package (which provides the bao binary) using the
+# openbao role from this collection. Set to false when bao is installed by
+# other means. openbao_version and the openbao repository options are passed
+# through unchanged.
+openbao_agent_install: true
+
+# Dedicated account, separate from the openbao server user, so the agent and
+# any exec commands cannot read server storage on hosts that run both.
+openbao_agent_user: openbao-agent
+openbao_agent_group: openbao-agent
+
+openbao_agent_config_dir: /etc/openbao-agent
+openbao_agent_data_dir: /var/lib/openbao-agent
+
+openbao_agent_service_name: openbao-agent
+openbao_agent_service_enabled: true
+openbao_agent_service_state: started
+
+# OpenBao server the agent authenticates against, for example
+# https://openbao.example.com:8200. Required.
+openbao_agent_address: ""
+openbao_agent_ca_cert: ""
+openbao_agent_tls_server_name: ""
+openbao_agent_tls_skip_verify: false
+openbao_agent_retry_num_retries: 12
+
+openbao_agent_log_level: info
+
+# Auto-auth method: approle or token_file.
+openbao_agent_auth_method: approle
+openbao_agent_auth_mount_path: "auth/{{ openbao_agent_auth_method if openbao_agent_auth_method != 'token_file' else 'token' }}"
+
+# AppRole credentials. Keep these in ansible-vault or a secrets manager.
+openbao_agent_approle_role_id: ""
+openbao_agent_approle_secret_id: ""
+
+# Token for the token_file method. Keep it in ansible-vault or a secrets
+# manager.
+openbao_agent_token: ""
+
+# Write the auto-auth token to a file sink so local processes can use it.
+openbao_agent_token_sink_enabled: true
+openbao_agent_token_sink_path: "{{ openbao_agent_data_dir }}/agent-token"
+openbao_agent_token_sink_mode: "0640"
+
+# Optional local API proxy listener using the auto-auth token, for example
+# 127.0.0.1:8100. Empty disables the listener. The listener has no TLS and
+# injects the agent token, so non-loopback addresses are refused unless
+# openbao_agent_listener_allow_nonlocal is true.
+openbao_agent_listener_address: ""
+openbao_agent_listener_allow_nonlocal: false
+
+openbao_agent_template_exit_on_retry_failure: true
+openbao_agent_template_static_secret_render_interval: 5m
+
+# Templates rendered by the agent. Each item needs a destination and exactly
+# one of:
+#   contents: inline template (mark it !unsafe so Ansible does not
+#             interpret the {{ }} markers)
+#   src:      template file on the controller, copied verbatim to
+#             {{ openbao_agent_config_dir }}/templates/
+#   source:   template file already present on the target host
+# Optional keys: perms, error_on_missing_key, backup, create_dest_dirs,
+# left_delimiter, right_delimiter, wait_min, wait_max, exec_command (list),
+# exec_timeout.
+openbao_agent_templates: []
+
+# Mode for rendered files when a template item does not set perms.
+openbao_agent_template_default_perms: "0600"
+
+# Raw HCL appended to the agent configuration.
+openbao_agent_extra_config: ""

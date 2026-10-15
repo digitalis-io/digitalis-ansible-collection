@@ -1,0 +1,130 @@
+---
+argument_specs:
+  main:
+    short_description: Install and configure OpenBao Agent.
+    description:
+      - Installs OpenBao, configures OpenBao Agent with auto-auth and file
+        templates, and runs it as a systemd service.
+    author: Digitalis.io
+    options:
+      openbao_agent_install:
+        type: bool
+        default: true
+        description: Install the OpenBao package with the openbao role.
+      openbao_agent_user:
+        type: str
+        default: openbao-agent
+        description: User the agent runs as.
+      openbao_agent_group:
+        type: str
+        default: openbao-agent
+        description: Group the agent runs as.
+      openbao_agent_config_dir:
+        type: path
+        default: /etc/openbao-agent
+        description: Directory for the agent configuration, credentials and copied templates.
+      openbao_agent_data_dir:
+        type: path
+        default: /var/lib/openbao-agent
+        description: Agent working directory for the PID file and token sink.
+      openbao_agent_service_name:
+        type: str
+        default: openbao-agent
+        description: Name of the systemd unit.
+      openbao_agent_service_enabled:
+        type: bool
+        default: true
+        description: Enable the agent service at boot.
+      openbao_agent_service_state:
+        type: str
+        default: started
+        choices: [started, stopped, restarted]
+        description: State of the agent service.
+      openbao_agent_address:
+        type: str
+        default: ""
+        description: URL of the OpenBao server. Required.
+      openbao_agent_ca_cert:
+        type: str
+        default: ""
+        description: Path on the host to a CA bundle used to verify the server.
+      openbao_agent_tls_server_name:
+        type: str
+        default: ""
+        description: SNI host name used when connecting to the server.
+      openbao_agent_tls_skip_verify:
+        type: bool
+        default: false
+        description: Disable TLS verification. Do not use in production.
+      openbao_agent_retry_num_retries:
+        type: int
+        default: 12
+        description: Number of retries for failed requests to the server.
+      openbao_agent_log_level:
+        type: str
+        default: info
+        choices: [trace, debug, info, warn, error]
+        description: Agent log level.
+      openbao_agent_auth_method:
+        type: str
+        default: approle
+        choices: [approle, token_file]
+        description: Auto-auth method.
+      openbao_agent_auth_mount_path:
+        type: str
+        description: Mount path of the auth method. Defaults to C(auth/approle) or C(auth/token).
+      openbao_agent_approle_role_id:
+        type: str
+        default: ""
+        no_log: true
+        description: AppRole role ID. Required for the approle method.
+      openbao_agent_approle_secret_id:
+        type: str
+        default: ""
+        no_log: true
+        description: AppRole secret ID. Required for the approle method.
+      openbao_agent_token:
+        type: str
+        default: ""
+        no_log: true
+        description: Token for the token_file method.
+      openbao_agent_token_sink_enabled:
+        type: bool
+        default: true
+        description: Write the auto-auth token to a file sink.
+      openbao_agent_token_sink_path:
+        type: path
+        description: Token sink path. Defaults to C(<data_dir>/agent-token).
+      openbao_agent_token_sink_mode:
+        type: str
+        default: "0640"
+        description: Octal file mode of the token sink.
+      openbao_agent_listener_address:
+        type: str
+        default: ""
+        description: Address for a local API proxy listener, for example C(127.0.0.1:8100). Empty disables it.
+      openbao_agent_listener_allow_nonlocal:
+        type: bool
+        default: false
+        description: Allow a non-loopback listener address. The listener has no TLS and uses the agent token.
+      openbao_agent_template_default_perms:
+        type: str
+        default: "0600"
+        description: Mode for rendered files when a template item does not set perms.
+      openbao_agent_template_exit_on_retry_failure:
+        type: bool
+        default: true
+        description: Exit the agent when template rendering exhausts its retries.
+      openbao_agent_template_static_secret_render_interval:
+        type: str
+        default: 5m
+        description: How often non-leased secrets are re-rendered.
+      openbao_agent_templates:
+        type: list
+        elements: dict
+        default: []
+        description: Templates to render. See the README for the item keys.
+      openbao_agent_extra_config:
+        type: str
+        default: ""
+        description: Raw HCL appended to the agent configuration.

@@ -1,0 +1,15 @@
+---
+- name: Converge
+  hosts: all
+  gather_facts: true
+  tasks:
+    # Scenario: An empty version is rejected
+    # Scenario: A malformed version is rejected
+    - name: "Scenario: Invalid versions are rejected | apply role with {{ item }}"
+      ansible.builtin.include_tasks: apply-role.yml
+      loop:
+        - ""
+        - "latest"
+        - "2.7"
+      loop_control:
+        loop_var: openbao_invalid_version

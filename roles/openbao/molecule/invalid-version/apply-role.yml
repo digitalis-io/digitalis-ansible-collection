@@ -1,0 +1,30 @@
+---
+- name: Apply role with an invalid version and capture the failure
+  block:
+    - name: Apply openbao role
+      ansible.builtin.include_role:
+        name: openbao
+      vars:
+        openbao_version: "{{ openbao_invalid_version }}"
+
+    - name: Fail because the role accepted an invalid version
+      ansible.builtin.fail:
+        msg: "openbao role accepted invalid version '{{ openbao_invalid_version }}'"
+      register: openbao_accepted
+
+  rescue:
+    - name: Re-raise when the role accepted the invalid version
+      ansible.builtin.fail:
+        msg: "{{ ansible_failed_result.msg }}"
+      when: ansible_failed_task.name == 'Fail because the role accepted an invalid version'
+
+    - name: Assert the role rejected the version before installing anything
+      ansible.builtin.assert:
+        that:
+          - "'openbao_version must be a package version string' in ansible_failed_result.msg"
+
+- name: Assert the OpenBao package was not installed
+  ansible.builtin.command: bao version
+  register: openbao_bao_present
+  changed_when: false
+  failed_when: openbao_bao_present.rc == 0

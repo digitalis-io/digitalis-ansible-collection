@@ -1,0 +1,70 @@
+---
+- name: Converge
+  hosts: all
+  gather_facts: true
+  vars:
+    openbao_agent_test_cases:
+      - name: an empty server address
+        vars: { address: "" }
+        expect: openbao_agent_address must be an http(s) URL
+      - name: a server address without a scheme
+        vars: { address: "openbao.example.com:8200" }
+        expect: openbao_agent_address must be an http(s) URL
+      - name: an unsupported auth method
+        vars: { auth_method: kubernetes }
+        expect: openbao_agent_auth_method
+      - name: AppRole without a secret ID
+        vars: { secret_id: "" }
+        expect: openbao_agent_approle_secret_id are required
+      - name: a template without a destination
+        vars: { templates: [{ contents: "x" }] }
+        expect: Each entry in openbao_agent_templates
+      - name: a template with a relative destination
+        vars: { templates: [{ destination: "app.conf", contents: "x" }] }
+        expect: Each entry in openbao_agent_templates
+      - name: a template with both contents and source
+        vars: { templates: [{ destination: "/etc/myapp/app.conf", contents: "x", source: "/tmp/x" }] }
+        expect: Each entry in openbao_agent_templates
+      - name: a template with an unknown key
+        vars: { templates: [{ destination: "/etc/myapp/app.conf", contents: "x", command: "true" }] }
+        expect: Each entry in openbao_agent_templates
+      - name: two templates with the same destination
+        vars: { templates: [{ destination: "/etc/myapp/app.conf", contents: "x" }, { destination: "/etc/myapp/app.conf", contents: "y" }] }
+        expect: duplicate destinations
+      - name: a template with non-octal permissions
+        vars: { templates: [{ destination: "/etc/myapp/app.conf", contents: "x", perms: "rw-r-----" }] }
+        expect: Each entry in openbao_agent_templates
+      - name: an exec timeout without a command
+        vars: { templates: [{ destination: "/etc/myapp/app.conf", contents: "x", exec_timeout: "5s" }] }
+        expect: Each entry in openbao_agent_templates
+      - name: a template rendered directly into /etc
+        vars: { templates: [{ destination: "/etc/app.conf", contents: "x" }] }
+        expect: Each entry in openbao_agent_templates
+      - name: two src files with the same name
+        vars: { templates: [{ destination: "/etc/a/app.conf", src: "a/app.ctmpl" }, { destination: "/etc/b/app.conf", src: "b/app.ctmpl" }] }
+        expect: src files must have unique file names
+      - name: a token sink mode that is not octal
+        vars: { sink_mode: "640x" }
+        expect: must be four digit octal strings
+      - name: a listener on a non-loopback address
+        vars: { listener: "0.0.0.0:8100" }
+        expect: must be a loopback address
+  tasks:
+    - name: Apply the role with each invalid configuration
+      ansible.builtin.include_tasks: expect-rejection.yml
+      loop: "{{ openbao_agent_test_cases }}"
+      loop_control:
+        loop_var: openbao_agent_test_case
+        label: "{{ openbao_agent_test_case.name }}"
+
+    - name: Check no agent configuration was written
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - /etc/openbao-agent/agent.hcl
+        - /etc/systemd/system/openbao-agent.service
+      register: openbao_agent_test_written
+
+    - name: Assert the host was left untouched
+      ansible.builtin.assert:
+        that: openbao_agent_test_written.results | selectattr('stat.exists') | list | length == 0

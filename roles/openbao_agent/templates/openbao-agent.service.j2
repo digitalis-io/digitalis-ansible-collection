@@ -1,0 +1,41 @@
+# {{ ansible_managed }}
+[Unit]
+Description=OpenBao Agent
+Documentation=https://openbao.org/docs/agent-and-proxy/agent/
+Wants=network-online.target
+After=network-online.target
+ConditionFileNotEmpty={{ openbao_agent_config_dir }}/agent.hcl
+
+[Service]
+Type=notify
+User={{ openbao_agent_user }}
+Group={{ openbao_agent_group }}
+ExecStart=/usr/bin/bao agent -config={{ openbao_agent_config_dir }}/agent.hcl
+ExecReload=/bin/kill --signal HUP $MAINPID
+KillMode=process
+KillSignal=SIGINT
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65536
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+ReadWritePaths={{ openbao_agent_data_dir }}
+{% if openbao_agent_token_sink_enabled and (openbao_agent_token_sink_path | dirname) != openbao_agent_data_dir %}
+ReadWritePaths=-{{ openbao_agent_token_sink_path | dirname }}
+{% endif %}
+{% for dir in openbao_agent_template_dest_dirs %}
+ReadWritePaths=-{{ dir }}
+{% endfor %}
+
+[Install]
+WantedBy=multi-user.target
