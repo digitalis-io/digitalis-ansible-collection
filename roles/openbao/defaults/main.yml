@@ -74,13 +74,13 @@ openbao_telemetry: {}
 #       image: ghcr.io/openbao/openbao-plugin-auth-aws
 #       version: v0.1.1
 #       binary_name: openbao-plugin-auth-aws
-#       sha256sum: a8e2262d943e2de54c640c3c85bade0666c10afc41d2bd9a90cb9a0006bef2b8
+#       sha256sum: 3b03fb12b8cedd9d2d83ea282a32a4f70147c93a927af5937c9b081525830db2
 #     - type: secret
 #       name: aws
 #       image: ghcr.io/openbao/openbao-plugin-secrets-aws
 #       version: v0.3.1
 #       binary_name: openbao-plugin-secrets-aws
-#       sha256sum: ebe1f8c73005bd17376c03162a270b38965d28d0c97f8b9cae04bf3b6c6a0072
+#       sha256sum: 3eac1f04852876dd1ead9bfd555cafa805af6c87b64b65c3b4a85ff65e98712c
 openbao_plugins: []
 
 # Server plugin options, rendered and the directory created only when
