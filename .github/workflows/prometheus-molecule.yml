@@ -10,16 +10,10 @@ on:
     paths:
       - 'roles/prometheus/**'
       - '.github/workflows/prometheus-molecule.yml'
-      - 'galaxy.yml'
-      - '.ansible-lint'
-      - '.yamllint'
   pull_request:
     paths:
       - 'roles/prometheus/**'
       - '.github/workflows/prometheus-molecule.yml'
-      - 'galaxy.yml'
-      - '.ansible-lint'
-      - '.yamllint'
 
 defaults:
   run:
