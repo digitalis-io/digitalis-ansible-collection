@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- `rabbitmq`: role moved in from ansible-role-rabbitmq. The collection now
+  depends on `community.rabbitmq` and `ansible.posix`.
+
 ## 0.1.0
 
 - `openbao`: role imported from ansible-role-openbao by Robert de Bock and

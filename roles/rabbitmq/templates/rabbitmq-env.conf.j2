@@ -1,0 +1,24 @@
+{% if rabbitmq_use_longname | default(false) %}
+RABBITMQ_NODENAME=rabbit@{{ ansible_fqdn }}
+RABBITMQ_USE_LONGNAME=true
+{% else %}
+RABBITMQ_NODENAME={{ rabbitmq_nodename }}
+{% endif %}
+
+{% if rabbitmq_ssl is defined and rabbitmq_ssl.key != "" %}
+{% if rabbitmq_erlang_ssl_path is defined and rabbitmq_erlang_ssl_path != "" %}
+{{ rabbitmq_erlang_ssl_path }}
+{% else %}
+ERL_SSL_PATH="{{ rabbitmq_erl_ssl_path | default('/usr/lib/erlang/lib/ssl-11.2.6/ebin') }}"
+{% endif %}
+
+{% if rabbitmq_ssl.internode_encryption is defined and rabbitmq_ssl.internode_encryption %}
+SERVER_ADDITIONAL_ERL_ARGS="-pa $ERL_SSL_PATH \
+  -proto_dist inet_tls \
+  -ssl_dist_optfile /etc/rabbitmq/inter_node_tls.config"
+
+RABBITMQ_CTL_ERL_ARGS="-pa $ERL_SSL_PATH \
+  -proto_dist inet_tls \
+  -ssl_dist_optfile /etc/rabbitmq/inter_node_tls.config"
+{% endif %}
+{% endif %}

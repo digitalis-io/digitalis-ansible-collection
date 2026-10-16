@@ -1,0 +1,20 @@
+---
+- name: Create RabbitMQ virtual hosts
+  community.rabbitmq.rabbitmq_vhost:
+    node: "{{ 'rabbit@' + ansible_fqdn if rabbitmq_use_longname | default(false) else rabbitmq_nodename }}"
+    name: "{{ item.name }}"
+    tracing: "{{ item.tracing | default(false) }}"
+    state: "{{ item.state | default('present') }}"
+  loop: "{{ rabbitmq_vhosts }}"
+  run_once: true
+
+- name: Ensure admin user has access to all virtual hosts
+  community.rabbitmq.rabbitmq_user:
+    node: "{{ 'rabbit@' + ansible_fqdn if rabbitmq_use_longname | default(false) else rabbitmq_nodename }}"
+    user: "{{ rabbitmq_admin_user | default('admin') }}"
+    password: "{{ rabbitmq_admin_password }}"
+    permissions: "{{ rabbitmq_admin_permissions }}"
+    tags: administrator
+    update_password: on_create
+  no_log: true
+  run_once: true

@@ -11,17 +11,11 @@ on:
       - 'roles/openbao_agent/**'
       - 'roles/openbao/**'
       - '.github/workflows/openbao-agent-molecule.yml'
-      - 'galaxy.yml'
-      - '.ansible-lint'
-      - '.yamllint'
   pull_request:
     paths:
       - 'roles/openbao_agent/**'
       - 'roles/openbao/**'
       - '.github/workflows/openbao-agent-molecule.yml'
-      - 'galaxy.yml'
-      - '.ansible-lint'
-      - '.yamllint'
 
 defaults:
   run:

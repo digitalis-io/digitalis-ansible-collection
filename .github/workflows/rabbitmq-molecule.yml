@@ -1,0 +1,50 @@
+---
+name: RabbitMQ Molecule
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'roles/rabbitmq/**'
+      - '.github/workflows/rabbitmq-molecule.yml'
+  pull_request:
+    paths:
+      - 'roles/rabbitmq/**'
+      - '.github/workflows/rabbitmq-molecule.yml'
+
+defaults:
+  run:
+    working-directory: roles/rabbitmq
+
+permissions:
+  contents: read
+
+jobs:
+  molecule:
+    name: Molecule rabbitmq (${{ matrix.platform }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [rockylinux9, rockylinux10, ubuntu2204, ubuntu2404, ubuntu2604, debian12, debian13]
+    env:
+      PY_COLORS: "1"
+      ANSIBLE_FORCE_COLOR: "1"
+      MOLECULE_IMAGE: geerlingguy/docker-${{ matrix.platform }}-ansible
+    steps:
+      - name: Check out the codebase
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install test dependencies
+        run: pip3 install ansible-core molecule 'molecule-plugins[docker]' docker
+
+      - name: Run Molecule
+        run: molecule test
