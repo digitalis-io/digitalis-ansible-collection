@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://digitalis.io">
-    <img src="https://cdn.prod.website-files.com/68370d67a3c849c28c22f703/68370d67a3c849c28c22f803_digitalis-logo.svg" alt="Digitalis.IO" width="300">
+    <img src="https://digitalis-marketplace-assets.s3.us-east-1.amazonaws.com/DigitalisDigital_DigitalisFullLogoGradient+-+medium.png" alt="Digitalis.IO" width="300">
   </a>
 </p>
 
@@ -25,6 +25,23 @@ Based on the [prometheus-community/ansible](https://github.com/prometheus-commun
   - Debian 12, 13
 - Target must have systemd-based init system
 - Controller must have internet access to download the Prometheus release from GitHub
+
+## Quick Start
+
+```bash
+ansible-galaxy collection install digitalis.digitalis
+```
+
+```yaml
+- hosts: monitoring
+  become: true
+  roles:
+    - role: digitalis.digitalis.prometheus
+```
+
+```bash
+ansible-playbook -i inventory site.yml
+```
 
 ## Role Variables
 
@@ -124,6 +141,7 @@ All variables are defined in `defaults/main.yml` with sensible defaults. Full ar
 
 ```yaml
 - hosts: monitoring
+  become: true
   roles:
     - role: digitalis.digitalis.prometheus
 ```
@@ -132,6 +150,7 @@ All variables are defined in `defaults/main.yml` with sensible defaults. Full ar
 
 ```yaml
 - hosts: monitoring
+  become: true
   roles:
     - role: digitalis.digitalis.prometheus
       vars:
@@ -163,6 +182,7 @@ All variables are defined in `defaults/main.yml` with sensible defaults. Full ar
 
 ```yaml
 - hosts: monitoring
+  become: true
   roles:
     - role: digitalis.digitalis.prometheus
       vars:
@@ -177,6 +197,7 @@ All variables are defined in `defaults/main.yml` with sensible defaults. Full ar
 
 ```yaml
 - hosts: monitoring
+  become: true
   roles:
     - role: digitalis.digitalis.prometheus
       vars:
@@ -189,6 +210,7 @@ All variables are defined in `defaults/main.yml` with sensible defaults. Full ar
 
 ```yaml
 - hosts: monitoring
+  become: true
   roles:
     - role: digitalis.digitalis.prometheus
       vars:
@@ -205,6 +227,7 @@ All variables are defined in `defaults/main.yml` with sensible defaults. Full ar
 
 ```yaml
 - hosts: monitoring
+  become: true
   roles:
     - role: digitalis.digitalis.prometheus
       vars:
@@ -226,6 +249,7 @@ All variables are defined in `defaults/main.yml` with sensible defaults. Full ar
 
 ```yaml
 - hosts: monitoring
+  become: true
   roles:
     - role: digitalis.digitalis.prometheus
       vars:
@@ -274,14 +298,8 @@ Tested platforms:
 
 ## Need Help?
 
-If you need assistance with this role, Prometheus monitoring, or any infrastructure automation challenges, we're here to help.
-
-[Get in touch with us](https://digitalis.io/contact-us) — our team of infrastructure experts can help you with deployment, scaling, and ongoing operations.
+This project is maintained by [Digitalis.io](https://digitalis.io). For support, visit [digitalis.io/contact](https://digitalis.io/contact).
 
 ## License
 
 Apache-2.0
-
-## Author Information
-
-[Digitalis.IO](https://digitalis.io/) — Cloud-native infrastructure experts.
