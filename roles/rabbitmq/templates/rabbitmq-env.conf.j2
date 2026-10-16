@@ -6,8 +6,8 @@ RABBITMQ_NODENAME={{ rabbitmq_nodename }}
 {% endif %}
 
 {% if rabbitmq_ssl is defined and rabbitmq_ssl.key != "" %}
-{% if erlang_ssl_path is defined and erlang_ssl_path != "" %}
-{{ erlang_ssl_path }}
+{% if rabbitmq_erlang_ssl_path is defined and rabbitmq_erlang_ssl_path != "" %}
+{{ rabbitmq_erlang_ssl_path }}
 {% else %}
 ERL_SSL_PATH="{{ rabbitmq_erl_ssl_path | default('/usr/lib/erlang/lib/ssl-11.2.6/ebin') }}"
 {% endif %}

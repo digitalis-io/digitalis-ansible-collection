@@ -39,8 +39,8 @@
     update_cache: true
   retries: 3
   delay: 10
-  register: result
-  until: result is succeeded
+  register: rabbitmq_install_result
+  until: rabbitmq_install_result is succeeded
   tags:
     - rabbitmq-server
     - packages
@@ -52,8 +52,8 @@
     update_cache: true
   retries: 3
   delay: 10
-  register: result
-  until: result is succeeded
+  register: rabbitmq_install_result
+  until: rabbitmq_install_result is succeeded
   tags:
     - rabbitmq-server
     - packages

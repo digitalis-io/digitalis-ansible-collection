@@ -32,22 +32,22 @@
         password: "{{ rabbitmq_admin_password }}"
         force_basic_auth: true
         status_code: 200
-      register: api_response
+      register: rabbitmq_verify_api_response
 
     - name: Assert management API returned valid data
       ansible.builtin.assert:
         that:
-          - api_response.json.rabbitmq_version is defined
+          - rabbitmq_verify_api_response.json.rabbitmq_version is defined
         fail_msg: "RabbitMQ management API did not return expected data"
 
     - name: Check RabbitMQ cluster status
       ansible.builtin.command:
         cmd: rabbitmqctl cluster_status
-      register: cluster_status
+      register: rabbitmq_verify_cluster_status
       changed_when: false
 
     - name: Assert cluster status reports running node
       ansible.builtin.assert:
         that:
-          - cluster_status.rc == 0
+          - rabbitmq_verify_cluster_status.rc == 0
         fail_msg: "rabbitmqctl cluster_status failed"

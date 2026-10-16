@@ -14,7 +14,7 @@
     status_code:
       - 200
       - 204
-  register: keycloak_token
+  register: rabbitmq_keycloak_token
   run_once: true
   when:
     - rabbitmq_keycloak_url is defined
@@ -24,14 +24,14 @@
 - name: Set RabbitMQ login credentials (OAuth2)
   ansible.builtin.set_fact:
     _rabbitmq_login_user: ""
-    _rabbitmq_login_password: "{{ keycloak_token.json.access_token }}"
-  when: keycloak_token is defined and not (keycloak_token.skipped | default(false))
+    _rabbitmq_login_password: "{{ rabbitmq_keycloak_token.json.access_token }}"
+  when: rabbitmq_keycloak_token is defined and not (rabbitmq_keycloak_token.skipped | default(false))
 
 - name: Set RabbitMQ login credentials (internal auth)
   ansible.builtin.set_fact:
     _rabbitmq_login_user: "{{ rabbitmq_admin_user }}"
     _rabbitmq_login_password: "{{ rabbitmq_admin_password }}"
-  when: keycloak_token is not defined or (keycloak_token.skipped | default(false))
+  when: rabbitmq_keycloak_token is not defined or (rabbitmq_keycloak_token.skipped | default(false))
 
 - name: Create RabbitMQ queues
   community.rabbitmq.rabbitmq_queue:

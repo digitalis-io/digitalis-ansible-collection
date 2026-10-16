@@ -66,12 +66,12 @@
           erl -noinput
           -eval 'io:format("ERL_SSL_PATH=~s~n", [filename:dirname(code:which(inet_tls_dist))])'
           -s init stop
-      register: cmd_erlang_ssl_path
+      register: rabbitmq_cmd_erlang_ssl_path
       changed_when: false
 
     - name: Save Erlang SSL path fact
       ansible.builtin.set_fact:
-        erlang_ssl_path: "{{ cmd_erlang_ssl_path.stdout }}"
+        rabbitmq_erlang_ssl_path: "{{ rabbitmq_cmd_erlang_ssl_path.stdout }}"
 
     - name: Write inter-node TLS config
       ansible.builtin.template:
