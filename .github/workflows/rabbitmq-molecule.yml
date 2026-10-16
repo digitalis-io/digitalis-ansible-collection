@@ -10,16 +10,10 @@ on:
     paths:
       - 'roles/rabbitmq/**'
       - '.github/workflows/rabbitmq-molecule.yml'
-      - 'galaxy.yml'
-      - '.ansible-lint'
-      - '.yamllint'
   pull_request:
     paths:
       - 'roles/rabbitmq/**'
       - '.github/workflows/rabbitmq-molecule.yml'
-      - 'galaxy.yml'
-      - '.ansible-lint'
-      - '.yamllint'
 
 defaults:
   run:

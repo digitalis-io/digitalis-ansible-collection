@@ -10,16 +10,10 @@ on:
     paths:
       - 'roles/openbao/**'
       - '.github/workflows/openbao-molecule.yml'
-      - 'galaxy.yml'
-      - '.ansible-lint'
-      - '.yamllint'
   pull_request:
     paths:
       - 'roles/openbao/**'
       - '.github/workflows/openbao-molecule.yml'
-      - 'galaxy.yml'
-      - '.ansible-lint'
-      - '.yamllint'
 
 defaults:
   run:
