@@ -11,6 +11,6 @@ _prometheus_binaries:
   - prometheus
   - promtool
 
-_github_api_headers: >-
+prometheus_github_api_headers: >-
   {{ {'GITHUB_TOKEN': lookup('ansible.builtin.env', 'GITHUB_TOKEN')}
      if (lookup('ansible.builtin.env', 'GITHUB_TOKEN')) else {} }}

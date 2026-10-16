@@ -12,8 +12,8 @@
     - name: Check promtool binary exists
       ansible.builtin.stat:
         path: /usr/local/bin/promtool
-      register: promtool_bin
-      failed_when: not promtool_bin.stat.exists
+      register: prometheus_verify_promtool_bin
+      failed_when: not prometheus_verify_promtool_bin.stat.exists
 
     - name: Check prometheus user exists
       ansible.builtin.getent:
@@ -28,30 +28,30 @@
     - name: Check configuration file exists with correct permissions
       ansible.builtin.stat:
         path: /etc/prometheus/prometheus.yml
-      register: config_file
+      register: prometheus_verify_config_file
       failed_when: >
-        not config_file.stat.exists or
-        config_file.stat.mode != '0640'
+        not prometheus_verify_config_file.stat.exists or
+        prometheus_verify_config_file.stat.mode != '0640'
 
     - name: Check data directory exists with correct ownership
       ansible.builtin.stat:
         path: /var/lib/prometheus
-      register: data_dir
+      register: prometheus_verify_data_dir
       failed_when: >
-        not data_dir.stat.isdir or
-        data_dir.stat.pw_name != 'prometheus'
+        not prometheus_verify_data_dir.stat.isdir or
+        prometheus_verify_data_dir.stat.pw_name != 'prometheus'
 
     - name: Check systemd unit file exists
       ansible.builtin.stat:
         path: /etc/systemd/system/prometheus.service
-      register: unit_file
-      failed_when: not unit_file.stat.exists
+      register: prometheus_verify_unit_file
+      failed_when: not prometheus_verify_unit_file.stat.exists
 
     - name: Check configuration directories exist
       ansible.builtin.stat:
         path: "{{ item }}"
-      register: config_dirs
-      failed_when: not config_dirs.stat.isdir
+      register: prometheus_verify_config_dirs
+      failed_when: not prometheus_verify_config_dirs.stat.isdir
       loop:
         - /etc/prometheus/rules
         - /etc/prometheus/file_sd
@@ -65,43 +65,43 @@
     - name: Read prometheus configuration
       ansible.builtin.slurp:
         src: /etc/prometheus/prometheus.yml
-      register: prom_config
+      register: prometheus_verify_prom_config
 
     - name: Verify configuration content
       ansible.builtin.assert:
         that:
-          - "'scrape_interval' in (prom_config.content | b64decode)"
-          - "'environment' in (prom_config.content | b64decode)"
-          - "'node_exporter' in (prom_config.content | b64decode)"
+          - "'scrape_interval' in (prometheus_verify_prom_config.content | b64decode)"
+          - "'environment' in (prometheus_verify_prom_config.content | b64decode)"
+          - "'node_exporter' in (prometheus_verify_prom_config.content | b64decode)"
         fail_msg: "Prometheus configuration is missing expected content"
 
     - name: Read prometheus systemd unit
       ansible.builtin.slurp:
         src: /etc/systemd/system/prometheus.service
-      register: prom_unit
+      register: prometheus_verify_prom_unit
 
     - name: Verify systemd unit content
       ansible.builtin.assert:
         that:
-          - "'User=prometheus' in (prom_unit.content | b64decode)"
-          - "'--storage.tsdb.retention.time=30d' in (prom_unit.content | b64decode)"
-          - "'NoNewPrivileges=true' in (prom_unit.content | b64decode)"
-          - "'PrivateDevices=true' in (prom_unit.content | b64decode)"
-          - "'ProtectHome=true' in (prom_unit.content | b64decode)"
+          - "'User=prometheus' in (prometheus_verify_prom_unit.content | b64decode)"
+          - "'--storage.tsdb.retention.time=30d' in (prometheus_verify_prom_unit.content | b64decode)"
+          - "'NoNewPrivileges=true' in (prometheus_verify_prom_unit.content | b64decode)"
+          - "'PrivateDevices=true' in (prometheus_verify_prom_unit.content | b64decode)"
+          - "'ProtectHome=true' in (prometheus_verify_prom_unit.content | b64decode)"
         fail_msg: "Systemd unit file missing expected configuration"
 
     - name: Check prometheus service is enabled
       ansible.builtin.systemd:
         name: prometheus
-      register: service_status
-      failed_when: service_status.status.UnitFileState != 'enabled'
+      register: prometheus_verify_service_status
+      failed_when: prometheus_verify_service_status.status.UnitFileState != 'enabled'
       when: prometheus_enable_service | default(true) | bool
 
     - name: Check prometheus service is running
       ansible.builtin.systemd:
         name: prometheus
-      register: service_running
-      failed_when: service_running.status.ActiveState != 'active'
+      register: prometheus_verify_service_running
+      failed_when: prometheus_verify_service_running.status.ActiveState != 'active'
       when: prometheus_enable_service | default(true) | bool
 
     - name: Check prometheus is listening on configured port

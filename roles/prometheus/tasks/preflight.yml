@@ -53,7 +53,7 @@
 
 - name: Get all file_sd files from scrape_configs
   ansible.builtin.set_fact:
-    file_sd_files: >-
+    prometheus_file_sd_files: >-
       {{ prometheus_scrape_configs | selectattr('file_sd_configs', 'defined')
          | map(attribute='file_sd_configs') | flatten
          | map(attribute='files') | flatten }}
@@ -65,7 +65,7 @@
     msg: >
       Target '{{ item.key }}' not found in your scrape configs. Ensure all targets from
       prometheus_targets are referenced in prometheus_scrape_configs.
-  when: not prometheus_config_dir + "/file_sd/" + item.key + ".yml" in file_sd_files
+  when: not prometheus_config_dir + "/file_sd/" + item.key + ".yml" in prometheus_file_sd_files
   with_dict: "{{ prometheus_targets }}"
   tags:
     - prometheus_configure
@@ -85,7 +85,7 @@
   ansible.builtin.set_fact:
     prometheus_version: >-
       {{ (lookup('url', 'https://api.github.com/repos/' ~ _prometheus_repo ~ '/releases/latest',
-          headers=_github_api_headers, split_lines=False) | from_json).get('tag_name') | replace('v', '') }}
+          headers=prometheus_github_api_headers, split_lines=False) | from_json).get('tag_name') | replace('v', '') }}
   run_once: true
   until: prometheus_version is version('0.0.0', '>=')
   retries: 10

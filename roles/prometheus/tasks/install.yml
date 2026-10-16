@@ -43,7 +43,7 @@
   ansible.builtin.uri:
     url: "{{ prometheus_binary_url }}"
     dest: "{{ prometheus_local_cache_path }}/prometheus-{{ prometheus_version }}.tar.gz"
-    headers: "{{ _github_api_headers }}"
+    headers: "{{ prometheus_github_api_headers }}"
     mode: "0644"
     status_code: [200, 203, 204, 206, 300, 301, 302, 303, 304, 307, 308]
     follow_redirects: all
@@ -68,7 +68,7 @@
     - name: Fetch checksum list
       ansible.builtin.uri:
         url: "{{ prometheus_checksums_url }}"
-        headers: "{{ _github_api_headers }}"
+        headers: "{{ prometheus_github_api_headers }}"
         method: GET
         return_content: true
         status_code: [200, 203, 204, 206, 300, 301, 302, 303, 304, 307, 308]

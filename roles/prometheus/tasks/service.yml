@@ -18,11 +18,11 @@
       semanage port -a -t http_port_t -p tcp
       {{ ('//' ~ prometheus_web_listen_address) | ansible.builtin.urlsplit('port') }}
   become: true
-  changed_when: _selinux_port.rc == 0
+  changed_when: prometheus_selinux_port.rc == 0
   failed_when:
-    - _selinux_port.rc != 0
-    - "'already defined' not in _selinux_port.stderr"
-  register: _selinux_port
+    - prometheus_selinux_port.rc != 0
+    - "'already defined' not in prometheus_selinux_port.stderr"
+  register: prometheus_selinux_port
   when:
     - ansible_facts['selinux'] is defined
     - ansible_facts['selinux'].status == "enabled"
