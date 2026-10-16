@@ -35,7 +35,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [rockylinux9, rockylinux10, ubuntu2204, ubuntu2404, debian12, debian13]
+        platform: [rockylinux9, rockylinux10, ubuntu2204, ubuntu2404, ubuntu2604, debian12, debian13]
     env:
       PY_COLORS: "1"
       ANSIBLE_FORCE_COLOR: "1"

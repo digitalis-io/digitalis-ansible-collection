@@ -21,10 +21,11 @@ rabbitmq_apt_repos:
   - url: https://deb2.rabbitmq.com/rabbitmq-server
     type: server
 
-# Per-distribution Erlang versions (supported: Ubuntu 22.04/24.04, Debian 12/13)
+# Per-distribution Erlang versions (supported: Ubuntu 22.04/24.04/26.04, Debian 12/13)
 rabbitmq_erlang_version_map:
   jammy: "1:27.3.4.9-1"     # Ubuntu 22.04 (from RabbitMQ Erlang repo)
   noble: "1:27.3.4.9-1"     # Ubuntu 24.04 (from RabbitMQ Erlang repo)
+  resolute: "1:27.3.4.6+dfsg-1ubuntu0.2"  # Ubuntu 26.04 (from the Ubuntu archive)
   bookworm: "1:27.3.4.9-1"  # Debian 12
   trixie: "1:27.3.4.9-1"    # Debian 13
 

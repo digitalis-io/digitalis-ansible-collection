@@ -28,7 +28,7 @@ ansible-galaxy collection install community.rabbitmq ansible.posix
 | OS | Versions |
 |----|----------|
 | Rocky Linux | 9, 10 |
-| Ubuntu | 22.04 (Jammy), 24.04 (Noble) |
+| Ubuntu | 22.04 (Jammy), 24.04 (Noble), 26.04 (Resolute) |
 | Debian | 12 (Bookworm), 13 (Trixie) |
 
 > **Note (Debian/Ubuntu — ARM64):** The RabbitMQ Erlang repository only publishes `amd64` packages. The role sets `rabbitmq_apt_arch` dynamically. On ARM64 hosts, Erlang must be provided by an alternative source (e.g., distro packages or a custom repo). Set `rabbitmq_apt_arch: amd64` only on x86_64.
