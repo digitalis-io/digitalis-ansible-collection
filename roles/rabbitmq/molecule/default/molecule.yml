@@ -22,5 +22,6 @@ provisioner:
     host_vars:
       instance:
         ansible_python_interpreter: auto
+        rabbitmq_admin_password: molecule-only-password
 verifier:
   name: ansible

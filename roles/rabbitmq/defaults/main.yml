@@ -49,7 +49,7 @@ rabbitmq_erlang_packages:
   - erlang-tools={{ rabbitmq_erlang_version }}
   - erlang-xmerl={{ rabbitmq_erlang_version }}
 
-rabbitmq_erlang_cookie: yBnEqlMZVk53LjvghuA6yZhL3nhfbmroH7w9iTBjlJJU4M7V3zsq/lGE
+rabbitmq_erlang_cookie: ""
 
 rabbitmq_cluster_members: []
 
@@ -143,7 +143,7 @@ rabbitmq_users:
     state: absent
 
 rabbitmq_admin_user: admin
-rabbitmq_admin_password: admin
+rabbitmq_admin_password: ""
 rabbitmq_admin_permissions:
   - vhost: /
     configure_priv: ".*"

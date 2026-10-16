@@ -2,7 +2,7 @@
 - name: Enable RabbitMQ backup cronjob
   ansible.builtin.copy:
     dest: /etc/cron.d/rabbitmq-backup
-    mode: "0644"
+    mode: "0600"
     owner: root
     group: root
     content: |

@@ -29,7 +29,7 @@
       ansible.builtin.uri:
         url: "http://127.0.0.1:15672/api/overview"
         user: admin
-        password: admin
+        password: "{{ rabbitmq_admin_password }}"
         force_basic_auth: true
         status_code: 200
       register: api_response

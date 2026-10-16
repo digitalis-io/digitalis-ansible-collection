@@ -15,12 +15,12 @@ Ansible role to install, configure, and manage RabbitMQ on RHEL/Rocky Linux and 
 ## Requirements
 
 - Ansible Core >= 2.15
-- Collections (install via `ansible-galaxy collection install -r requirements.yml`):
+- Collections (installed with `digitalis.digitalis`, or manually as below):
   - `community.rabbitmq`
   - `ansible.posix`
 
 ```bash
-ansible-galaxy collection install -r requirements.yml
+ansible-galaxy collection install community.rabbitmq ansible.posix
 ```
 
 ## Supported Platforms
@@ -202,7 +202,7 @@ When `rabbitmq_keycloak_url`, `rabbitmq_keycloak_client_id`, and `rabbitmq_keycl
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
-| `rabbitmq_erlang_cookie` | string | (example value) | Shared secret for cluster node authentication. **Change this.** |
+| `rabbitmq_erlang_cookie` | string | `""` | Shared secret for cluster node authentication. Required for clusters; not written when empty. |
 | `rabbitmq_cluster_members` | list | `[]` | List of cluster nodes, e.g. `rabbit@node1.example.com`. Empty = standalone. |
 | `rabbitmq_cluster_name` | string | unset | Optional cluster name (e.g. `rabbit.example.com`) |
 | `rabbitmq_cluster_tags` | dict | `{}` | Key/value tags applied to cluster nodes |
@@ -224,7 +224,7 @@ When `rabbitmq_keycloak_url`, `rabbitmq_keycloak_client_id`, and `rabbitmq_keycl
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
 | `rabbitmq_admin_user` | string | `admin` | Admin username created by the role |
-| `rabbitmq_admin_password` | string | `admin` | Admin password. **Always override this.** |
+| `rabbitmq_admin_password` | string | `""` | Admin password. Required; the role fails if unset. |
 | `rabbitmq_admin_permissions` | list | full access on `/` | Permissions granted to the admin user |
 
 ### Users

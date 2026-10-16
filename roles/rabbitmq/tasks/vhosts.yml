@@ -12,7 +12,7 @@
   community.rabbitmq.rabbitmq_user:
     node: "{{ 'rabbit@' + ansible_fqdn if rabbitmq_use_longname | default(false) else rabbitmq_nodename }}"
     user: "{{ rabbitmq_admin_user | default('admin') }}"
-    password: "{{ rabbitmq_admin_password | default('admin') }}"
+    password: "{{ rabbitmq_admin_password }}"
     permissions: "{{ rabbitmq_admin_permissions }}"
     tags: administrator
   run_once: true

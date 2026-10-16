@@ -1,4 +1,13 @@
 ---
+- name: Require an admin password
+  ansible.builtin.assert:
+    that:
+      - rabbitmq_admin_password | length > 0
+    fail_msg: rabbitmq_admin_password must be set
+    quiet: true
+  tags:
+    - always
+
 - name: OS config
   tags:
     - os_config
