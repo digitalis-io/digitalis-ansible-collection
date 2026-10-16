@@ -1,0 +1,155 @@
+---
+rabbitmq_daemon: rabbitmq-server
+rabbitmq_state: started
+rabbitmq_enabled: true
+rabbitmq_use_haproxy: false
+rabbitmq_use_longname: false
+
+rabbitmq_version: "4.2.5"
+rabbitmq_admin_version: "2.29.0"
+
+rabbitmq_apt_arch: "{{ ansible_architecture | replace('x86_64', 'amd64') | replace('aarch64', 'arm64') }}"
+rabbitmq_apt_key_path: /usr/share/keyrings/com.rabbitmq.team.gpg
+rabbitmq_apt_key_url: "https://keys.openpgp.org/vks/v1/by-fingerprint/0A9AF2115F4687BD29803A206B73A36E6026DFCA"
+rabbitmq_apt_repos:
+  - url: https://deb1.rabbitmq.com/rabbitmq-erlang
+    type: erlang
+  - url: https://deb2.rabbitmq.com/rabbitmq-erlang
+    type: erlang
+  - url: https://deb1.rabbitmq.com/rabbitmq-server
+    type: server
+  - url: https://deb2.rabbitmq.com/rabbitmq-server
+    type: server
+
+# Per-distribution Erlang versions (supported: Ubuntu 22.04/24.04, Debian 12/13)
+rabbitmq_erlang_version_map:
+  jammy: "1:27.3.4.9-1"     # Ubuntu 22.04 (from RabbitMQ Erlang repo)
+  noble: "1:27.3.4.9-1"     # Ubuntu 24.04 (from RabbitMQ Erlang repo)
+  bookworm: "1:27.3.4.9-1"  # Debian 12
+  trixie: "1:27.3.4.9-1"    # Debian 13
+
+rabbitmq_erlang_version: "{{ rabbitmq_erlang_version_map.get(ansible_distribution_release, '1:27.2-1') }}"
+
+rabbitmq_erlang_packages:
+  - erlang-asn1={{ rabbitmq_erlang_version }}
+  - erlang-base={{ rabbitmq_erlang_version }}
+  - erlang-crypto={{ rabbitmq_erlang_version }}
+  - erlang-eldap={{ rabbitmq_erlang_version }}
+  - erlang-ftp={{ rabbitmq_erlang_version }}
+  - erlang-inets={{ rabbitmq_erlang_version }}
+  - erlang-mnesia={{ rabbitmq_erlang_version }}
+  - erlang-os-mon={{ rabbitmq_erlang_version }}
+  - erlang-parsetools={{ rabbitmq_erlang_version }}
+  - erlang-public-key={{ rabbitmq_erlang_version }}
+  - erlang-runtime-tools={{ rabbitmq_erlang_version }}
+  - erlang-snmp={{ rabbitmq_erlang_version }}
+  - erlang-ssl={{ rabbitmq_erlang_version }}
+  - erlang-syntax-tools={{ rabbitmq_erlang_version }}
+  - erlang-tftp={{ rabbitmq_erlang_version }}
+  - erlang-tools={{ rabbitmq_erlang_version }}
+  - erlang-xmerl={{ rabbitmq_erlang_version }}
+
+rabbitmq_erlang_cookie: yBnEqlMZVk53LjvghuA6yZhL3nhfbmroH7w9iTBjlJJU4M7V3zsq/lGE
+
+rabbitmq_cluster_members: []
+
+rabbitmq_plugins: "rabbitmq_management,rabbitmq_stream,rabbitmq_shovel,rabbitmq_shovel_management,rabbitmq_prometheus,rabbitmq_auth_backend_oauth2"
+rabbitmq_log_level: info
+
+rabbitmq_backup_cronjob:
+  enabled: false
+  schedule: "0 0 * * *"
+  command: "/usr/local/bin/rabbitmqadmin --username={{ rabbitmq_admin_user }} --password={{ rabbitmq_admin_password }} -H {{ rabbitmq_management_listen_address }} -P {{ rabbitmq_management_port }} export /tmp/cluster.backup-$(date +'%s').json"
+
+rabbitmq_listen_address: "0.0.0.0"
+
+# Port configuration
+rabbitmq_amqp_port: 5672
+rabbitmq_amqp_ssl_port: 5671
+rabbitmq_management_port: 15672
+rabbitmq_management_ssl_port: 15671
+rabbitmq_prometheus_port: 15692
+rabbitmq_prometheus_ssl_port: 15691
+
+# Management API listen address (set to 0.0.0.0 to expose externally)
+rabbitmq_management_listen_address: "127.0.0.1"
+
+# Node name used by rabbitmqctl commands; override if ansible_hostname is wrong
+rabbitmq_nodename: "rabbit@{{ ansible_hostname }}"
+
+# HAProxy listener ports (frontend ports, distinct from backend RabbitMQ ports)
+rabbitmq_haproxy_amqp_port: 5672
+rabbitmq_haproxy_amqp_ssl_port: 5673
+rabbitmq_haproxy_mgmt_port: 15672
+rabbitmq_haproxy_mgmt_ssl_port: 15673
+rabbitmq_haproxy_stats_port: 1936
+rabbitmq_haproxy_log_address: "127.0.0.1"
+
+# rabbitmq_keycloak_url: "https://keycloak.example.com/realms/test"
+# rabbitmq_cluster_name: "rabbit.example.com"
+# rabbitmq_keycloak_client_id: mgt_api_client
+
+rabbitmq_cluster_tags: {}
+
+# rabbitmq_ssl:
+#   key: /etc/rabbitmq/server.key
+#   cert: /etc/rabbitmq/server.crt
+#   ca: /etc/rabbitmq/ca.pem
+#   password: ""
+#   internode_encryption: false
+
+rabbitmq_sysctl:
+  fs.file-max: 200000
+  net.core.rmem_max: 16777216
+  net.core.wmem_max: 16777216
+  net.core.somaxconn: 4096
+  net.ipv4.tcp_keepalive_time: 60
+  net.ipv4.tcp_keepalive_intvl: 10
+  net.ipv4.tcp_keepalive_probes: 3
+  net.ipv4.ip_local_port_range: "1024 65535"
+
+rabbitmq_channel_max: 128
+rabbitmq_initial_frame_max: 4096
+rabbitmq_frame_max: 131072
+
+rabbitmq_ssl_ciphers:
+  - ECDHE-ECDSA-AES256-GCM-SHA384
+  - ECDHE-RSA-AES256-GCM-SHA384
+  - ECDH-ECDSA-AES256-GCM-SHA384
+  - ECDH-RSA-AES256-GCM-SHA384
+  - DHE-RSA-AES256-GCM-SHA384
+  - DHE-DSS-AES256-GCM-SHA384
+  - ECDHE-ECDSA-AES128-GCM-SHA256
+  - ECDHE-RSA-AES128-GCM-SHA256
+  - ECDH-ECDSA-AES128-GCM-SHA256
+  - ECDH-RSA-AES128-GCM-SHA256
+  - DHE-RSA-AES128-GCM-SHA256
+  - DHE-DSS-AES128-GCM-SHA256
+
+rabbitmq_queue_defaults:
+  x-ha-policy: all
+  x-queue-type: quorum
+  x-delivery-limit: 20
+  x-quorum-initial-group-size: 3
+  x-max-in-memory-length: 0
+
+rabbitmq_queues: []
+#  - name: test001
+#    create_dlq: true
+#  - name: test005
+
+rabbitmq_users:
+  - name: guest
+    state: absent
+
+rabbitmq_admin_user: admin
+rabbitmq_admin_password: admin
+rabbitmq_admin_permissions:
+  - vhost: /
+    configure_priv: ".*"
+    read_priv: ".*"
+    write_priv: ".*"
+
+rabbitmq_vhosts: []
+#  - name: /app-dev
+#    state: present

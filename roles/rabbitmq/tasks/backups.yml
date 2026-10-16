@@ -1,0 +1,10 @@
+---
+- name: Enable RabbitMQ backup cronjob
+  ansible.builtin.copy:
+    dest: /etc/cron.d/rabbitmq-backup
+    mode: "0644"
+    owner: root
+    group: root
+    content: |
+      {{ rabbitmq_backup_cronjob.schedule }} root {{ rabbitmq_backup_cronjob.command }}
+  when: rabbitmq_backup_cronjob.enabled | bool

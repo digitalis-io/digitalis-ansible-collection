@@ -19,10 +19,13 @@ jobs:
   openbao-agent:
     uses: ./.github/workflows/openbao-agent-molecule.yml
 
+  rabbitmq:
+    uses: ./.github/workflows/rabbitmq-molecule.yml
+
   build:
     name: Build collection
     runs-on: ubuntu-26.04
-    needs: [lint, openbao, openbao-agent]
+    needs: [lint, openbao, openbao-agent, rabbitmq]
     steps:
       - name: Check out the codebase
         uses: actions/checkout@v4

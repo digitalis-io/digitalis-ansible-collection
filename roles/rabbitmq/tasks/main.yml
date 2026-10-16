@@ -1,0 +1,172 @@
+---
+- name: OS config
+  tags:
+    - os_config
+  block:
+    - name: Set file descriptor limits for rabbitmq
+      ansible.builtin.copy:
+        dest: /etc/security/limits.d/rabbitmq.conf
+        content: |
+          rabbitmq soft nofile 65535
+          rabbitmq hard nofile 65535
+        mode: "0644"
+
+    - name: Apply sysctl tuning
+      ansible.posix.sysctl:
+        name: "{{ item.key }}"
+        value: "{{ item.value }}"
+        state: present
+      loop: "{{ rabbitmq_sysctl | dict2items }}"
+      when: not ansible_virtualization_type == 'docker'
+
+- name: Set up for RedHat
+  ansible.builtin.include_tasks: setup-RedHat.yml
+  when: ansible_os_family == 'RedHat'
+
+- name: Set up for Debian
+  ansible.builtin.include_tasks: setup-Debian.yml
+  when: ansible_os_family == 'Debian'
+
+- name: RabbitMQ system config
+  tags:
+    - rabbitmq
+    - system_config
+  block:
+    - name: Create systemd service override directory
+      ansible.builtin.file:
+        state: directory
+        path: /etc/systemd/system/rabbitmq-server.service.d
+        mode: "0755"
+        owner: root
+
+    - name: Write systemd service override for file limits
+      ansible.builtin.template:
+        dest: /etc/systemd/system/rabbitmq-server.service.d/limits.conf
+        src: service_override.conf.j2
+        mode: "0644"
+      notify: Reload systemd daemon
+
+- name: RabbitMQ main config
+  tags:
+    - rabbitmq
+    - config
+  block:
+    - name: Get Erlang SSL library path
+      ansible.builtin.command:
+        cmd: >-
+          erl -noinput
+          -eval 'io:format("ERL_SSL_PATH=~s~n", [filename:dirname(code:which(inet_tls_dist))])'
+          -s init stop
+      register: cmd_erlang_ssl_path
+      changed_when: false
+
+    - name: Save Erlang SSL path fact
+      ansible.builtin.set_fact:
+        erlang_ssl_path: "{{ cmd_erlang_ssl_path.stdout }}"
+
+    - name: Write inter-node TLS config
+      ansible.builtin.template:
+        dest: /etc/rabbitmq/inter_node_tls.config
+        src: inter_node_tls.config.j2
+        mode: "0644"
+        owner: rabbitmq
+        group: rabbitmq
+      when: rabbitmq_ssl is defined
+      notify: Restart rabbitmq
+
+    - name: Write advanced config
+      ansible.builtin.template:
+        dest: /etc/rabbitmq/advanced.config
+        src: advanced.config.j2
+        mode: "0644"
+        owner: rabbitmq
+        group: rabbitmq
+      notify: Restart rabbitmq
+
+    - name: Write Erlang cookie
+      ansible.builtin.copy:
+        dest: "{{ rabbitmq_home | default('/var/lib/rabbitmq') }}/.erlang.cookie"
+        content: "{{ rabbitmq_erlang_cookie }}"
+        owner: rabbitmq
+        group: rabbitmq
+        mode: "0400"
+      when: rabbitmq_erlang_cookie is defined and rabbitmq_erlang_cookie != ""
+      notify: Restart rabbitmq
+
+    - name: Write rabbitmq.conf
+      ansible.builtin.template:
+        dest: /etc/rabbitmq/rabbitmq.conf
+        src: rabbitmq.conf.j2
+        mode: "0644"
+      notify: Restart rabbitmq
+
+    - name: Write rabbitmq-env.conf
+      ansible.builtin.template:
+        dest: /etc/rabbitmq/rabbitmq-env.conf
+        src: rabbitmq-env.conf.j2
+        mode: "0644"
+      notify: Restart rabbitmq
+
+- name: Enable RabbitMQ plugins
+  tags: plugins
+  ansible.builtin.copy:
+    dest: /etc/rabbitmq/enabled_plugins
+    content: "[{{ rabbitmq_plugins }}]."
+    mode: "0644"
+    owner: rabbitmq
+    group: rabbitmq
+  when: rabbitmq_plugins != ""
+  notify: Restart rabbitmq
+
+- name: Ensure RabbitMQ is started and enabled
+  ansible.builtin.systemd:
+    name: "{{ rabbitmq_daemon }}"
+    state: "{{ rabbitmq_state }}"
+    enabled: "{{ rabbitmq_enabled }}"
+
+- name: Flush handlers before configuring RabbitMQ
+  ansible.builtin.meta: flush_handlers
+
+- name: Create RabbitMQ vhosts
+  tags: vhosts
+  ansible.builtin.import_tasks: vhosts.yml
+
+- name: Create RabbitMQ users
+  tags: users
+  ansible.builtin.import_tasks: users.yml
+
+- name: Create RabbitMQ queues
+  tags: queues
+  ansible.builtin.import_tasks: queues.yml
+  when: rabbitmq_queues is defined and rabbitmq_queues | length > 0
+
+- name: Create backup cronjob
+  tags: backups
+  ansible.builtin.import_tasks: backups.yml
+
+- name: Download rabbitmqadmin CLI
+  tags: rabbitmqadmin
+  ansible.builtin.get_url:
+    url: "https://github.com/rabbitmq/rabbitmqadmin-ng/releases/download/v{{ rabbitmq_admin_version }}/rabbitmqadmin-{{ rabbitmq_admin_version }}-{{ ansible_architecture }}-unknown-linux-gnu"
+    dest: /usr/local/bin/rabbitmqadmin
+    mode: "0755"
+
+- name: Install and configure HAProxy
+  tags: haproxy
+  when: rabbitmq_use_haproxy | bool
+  block:
+    - name: Install haproxy package
+      ansible.builtin.package:
+        name: haproxy
+
+    - name: Write HAProxy config
+      ansible.builtin.template:
+        dest: /etc/haproxy/haproxy.cfg
+        src: haproxy_rabbitmq.cfg.j2
+        mode: "0644"
+      notify: Restart haproxy
+
+    - name: Ensure HAProxy is started
+      ansible.builtin.systemd:
+        name: haproxy
+        state: restarted

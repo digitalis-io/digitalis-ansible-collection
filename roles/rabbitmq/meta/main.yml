@@ -1,0 +1,29 @@
+---
+galaxy_info:
+  role_name: rabbitmq
+  namespace: digitalis
+  author: Digitalis.IO DevOps Team
+  description: Ansible role to install and configure RabbitMQ
+  company: Digitalis.IO
+  license: Apache
+  min_ansible_version: "2.15"
+
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+        - trixie
+    - name: Ubuntu
+      versions:
+        - jammy
+        - noble
+    - name: EL
+      versions:
+        - "9"
+        - "10"
+
+  galaxy_tags:
+    - rabbitmq
+    - amqp
+
+dependencies: []

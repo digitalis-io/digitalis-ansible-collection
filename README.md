@@ -130,6 +130,7 @@ the agent user to reload `nginx.service`. See the
 |------|-------------|
 | [openbao](roles/openbao/README.md) | Install the OpenBao server package from the upstream repository |
 | [openbao_agent](roles/openbao_agent/README.md) | Install and run OpenBao Agent to render secrets to files |
+| [rabbitmq](roles/rabbitmq/README.md) | Install and configure RabbitMQ, including clustering, TLS and queues |
 
 ## Supported platforms
 

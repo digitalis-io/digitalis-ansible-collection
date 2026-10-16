@@ -1,0 +1,53 @@
+---
+- name: Verify
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Gather service facts
+      ansible.builtin.service_facts:
+
+    - name: Assert rabbitmq-server is running
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.services['rabbitmq-server.service'] is defined
+          - ansible_facts.services['rabbitmq-server.service'].state == 'running'
+        fail_msg: "rabbitmq-server service is not running"
+
+    - name: Wait for AMQP port to be available
+      ansible.builtin.wait_for:
+        port: 5672
+        host: 127.0.0.1
+        timeout: 30
+
+    - name: Wait for management API port to be available
+      ansible.builtin.wait_for:
+        port: 15672
+        host: 127.0.0.1
+        timeout: 30
+
+    - name: Check RabbitMQ management API is responding
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:15672/api/overview"
+        user: admin
+        password: admin
+        force_basic_auth: true
+        status_code: 200
+      register: api_response
+
+    - name: Assert management API returned valid data
+      ansible.builtin.assert:
+        that:
+          - api_response.json.rabbitmq_version is defined
+        fail_msg: "RabbitMQ management API did not return expected data"
+
+    - name: Check RabbitMQ cluster status
+      ansible.builtin.command:
+        cmd: rabbitmqctl cluster_status
+      register: cluster_status
+      changed_when: false
+
+    - name: Assert cluster status reports running node
+      ansible.builtin.assert:
+        that:
+          - cluster_status.rc == 0
+        fail_msg: "rabbitmqctl cluster_status failed"

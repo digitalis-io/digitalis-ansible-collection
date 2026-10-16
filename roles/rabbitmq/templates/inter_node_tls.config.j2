@@ -1,0 +1,14 @@
+[
+  {server, [
+    {cacertfile, "{{ rabbitmq_ssl.ca }}"},
+    {certfile,   "{{ rabbitmq_ssl.cert }}"},
+    {keyfile,    "{{ rabbitmq_ssl.key }}"},
+    {verify, verify_none}
+  ]},
+  {client, [
+    {cacertfile, "{{ rabbitmq_ssl.ca }}"},
+    {certfile,   "{{ rabbitmq_ssl.cert }}"},
+    {keyfile,    "{{ rabbitmq_ssl.key }}"},
+    {verify, verify_none}
+  ]}
+].

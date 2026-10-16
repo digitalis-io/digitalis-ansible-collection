@@ -1,0 +1,3 @@
+# /etc/systemd/system/rabbitmq-server.service.d/limits.conf
+[Service]
+LimitNOFILE={{ rabbitmq_file_limits | default(65536) }}
