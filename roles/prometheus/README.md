@@ -59,7 +59,8 @@ All variables are defined in `defaults/main.yml` with sensible defaults. Full ar
 | `prometheus_db_dir` | `/var/lib/prometheus` | Data directory |
 | `prometheus_config_dir` | `/etc/prometheus` | Configuration directory |
 | `prometheus_binary_install_dir` | `/usr/local/bin` | Directory for binaries |
-| `prometheus_local_cache_path` | `/tmp/prometheus-...` | Local cache for downloaded archive |
+| `prometheus_download_local` | `false` | Download and verify the archive on the target host. Set to `true` to download on the Ansible controller and copy it over (targets without internet access) |
+| `prometheus_local_cache_path` | `/tmp/prometheus-...` | Cache directory for the downloaded archive, on the host that downloads it |
 
 ### Network
 

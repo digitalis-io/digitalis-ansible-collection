@@ -1,6 +1,6 @@
 ---
 # Prometheus version to install. Set to "latest" to auto-discover.
-prometheus_version: "3.4.1"
+prometheus_version: "3.13.4"
 
 # Download URLs (override for mirrors or air-gapped installs)
 prometheus_binary_url: "https://github.com/{{ _prometheus_repo }}/releases/download/v{{ prometheus_version }}/\
@@ -118,5 +118,9 @@ prometheus_stop_timeout: "600s"
 # Set to false for image builds (Packer) or testing without systemd
 prometheus_enable_service: true
 
-# Local path to cache the downloaded archive
+# Download and verify the archive on the target host (false) or on the Ansible
+# controller and copy it over (true, for targets without internet access)
+prometheus_download_local: false
+
+# Path used to cache the downloaded archive, on the host that downloads it
 prometheus_local_cache_path: "/tmp/prometheus-{{ ansible_facts['system'] | lower }}-{{ _prometheus_go_ansible_arch }}/{{ prometheus_version }}"
