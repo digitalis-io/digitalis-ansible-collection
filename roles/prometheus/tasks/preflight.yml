@@ -1,0 +1,96 @@
+---
+- name: Assert usage of systemd as an init system
+  ansible.builtin.assert:
+    that: ansible_facts['service_mgr'] == 'systemd'
+    msg: "This role only works with systemd"
+  tags:
+    - prometheus_install
+    - prometheus_configure
+
+- name: Assert that listen address is valid
+  ansible.builtin.assert:
+    that:
+      - prometheus_web_listen_address is string
+      - prometheus_web_listen_address is match('.+:\\d+$')
+  tags:
+    - prometheus_configure
+
+- name: Assert no duplicate config flags
+  ansible.builtin.assert:
+    that:
+      - prometheus_config_flags_extra['config.file'] is not defined
+      - prometheus_config_flags_extra['storage.tsdb.path'] is not defined
+      - prometheus_config_flags_extra['storage.local.path'] is not defined
+      - prometheus_config_flags_extra['web.listen-address'] is not defined
+      - prometheus_config_flags_extra['web.external-url'] is not defined
+    msg: "Detected duplicate configuration entry. Please check your variables and role README."
+  tags:
+    - prometheus_configure
+
+- name: Assert external_labels are not configured in prometheus_global
+  ansible.builtin.assert:
+    that: prometheus_global.external_labels is not defined
+    msg: "Use prometheus_external_labels to define external labels"
+  tags:
+    - prometheus_configure
+
+- name: Fail when prometheus_config_flags_extra duplicates managed parameters
+  ansible.builtin.fail:
+    msg: >
+      Duplicate configuration detected. Please check your prometheus_config_flags_extra
+      against other variables in defaults/main.yml
+  with_items:
+    - "storage.tsdb.retention"
+    - "storage.tsdb.path"
+    - "storage.local.retention"
+    - "storage.local.path"
+    - "config.file"
+    - "web.listen-address"
+    - "web.external-url"
+  when: item in prometheus_config_flags_extra.keys()
+  tags:
+    - prometheus_configure
+
+- name: Get all file_sd files from scrape_configs
+  ansible.builtin.set_fact:
+    file_sd_files: >-
+      {{ prometheus_scrape_configs | selectattr('file_sd_configs', 'defined')
+         | map(attribute='file_sd_configs') | flatten
+         | map(attribute='files') | flatten }}
+  tags:
+    - prometheus_configure
+
+- name: Fail when file_sd targets are not defined in scrape_configs
+  ansible.builtin.fail:
+    msg: >
+      Target '{{ item.key }}' not found in your scrape configs. Ensure all targets from
+      prometheus_targets are referenced in prometheus_scrape_configs.
+  when: not prometheus_config_dir + "/file_sd/" + item.key + ".yml" in file_sd_files
+  with_dict: "{{ prometheus_targets }}"
+  tags:
+    - prometheus_configure
+
+- name: Warn when alertmanager_config is empty but alert_rules are specified
+  ansible.builtin.debug:
+    msg: >
+      No alertmanager configuration was specified. If you want your alerts to be sent,
+      make sure to specify prometheus_alertmanager_config.
+  when:
+    - prometheus_alertmanager_config == []
+    - prometheus_alert_rules != []
+  tags:
+    - prometheus_configure
+
+- name: Discover latest version
+  ansible.builtin.set_fact:
+    prometheus_version: >-
+      {{ (lookup('url', 'https://api.github.com/repos/' ~ _prometheus_repo ~ '/releases/latest',
+          headers=_github_api_headers, split_lines=False) | from_json).get('tag_name') | replace('v', '') }}
+  run_once: true
+  until: prometheus_version is version('0.0.0', '>=')
+  retries: 10
+  delay: 10
+  when:
+    - prometheus_version == "latest"
+  tags:
+    - prometheus_install

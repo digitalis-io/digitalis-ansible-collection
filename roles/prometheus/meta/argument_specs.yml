@@ -1,0 +1,158 @@
+---
+# yamllint disable rule:line-length
+argument_specs:
+  main:
+    short_description: "Installs and configures Prometheus"
+    description:
+      - "Prometheus monitoring system configuration and management"
+    author:
+      - "Digitalis.IO"
+    options:
+      prometheus_version:
+        description:
+          - "Prometheus package version. Also accepts C(latest) as parameter."
+        default: "3.4.1"
+      prometheus_binary_url:
+        description: "URL of the Prometheus binaries .tar.gz file"
+        default: "https://github.com/{{ _prometheus_repo }}/releases/download/v{{ prometheus_version }}/prometheus-{{ prometheus_version }}.{{ ansible_facts['system'] | lower }}-{{ _prometheus_go_ansible_arch }}.tar.gz"
+      prometheus_checksums_url:
+        description: "URL of the Prometheus checksums file"
+        default: "https://github.com/{{ _prometheus_repo }}/releases/download/v{{ prometheus_version }}/sha256sums.txt"
+      prometheus_config_dir:
+        description: "Path to directory with Prometheus configuration"
+        default: "/etc/prometheus"
+      prometheus_db_dir:
+        description: "Path to directory with Prometheus database"
+        default: "/var/lib/prometheus"
+      prometheus_read_only_dirs:
+        description: "Additional paths that Prometheus is allowed to read (useful for SSL certs outside of the config directory)"
+        type: "list"
+        elements: "str"
+      prometheus_binary_install_dir:
+        description:
+          - "Directory to install binaries"
+        default: "/usr/local/bin"
+      prometheus_web_listen_address:
+        description: "Address on which Prometheus will listen"
+        default: "0.0.0.0:9090"
+      prometheus_web_config:
+        description: "A Prometheus web config yaml for configuring TLS and auth."
+        type: "dict"
+      prometheus_web_external_url:
+        description: "External address on which Prometheus is available. Useful when behind reverse proxy."
+      prometheus_metrics_path:
+        description: "Prometheus external metrics path"
+        default: "/{{ (prometheus_web_external_url + '/metrics') | regex_replace('^(.*://)?(.*?)/') }}"
+      prometheus_storage_retention:
+        description: "Data retention period"
+        default: "30d"
+      prometheus_storage_retention_size:
+        description:
+          - "Data retention period by size"
+          - "Maximum number of bytes that can be stored for blocks."
+          - "Units supported: KB, MB, GB, TB, PB."
+        default: "0"
+      prometheus_agent_mode:
+        description:
+          - "The Agent mode optimises Prometheus for the remote write use case."
+          - "It disables querying, alerting, and local storage."
+        type: bool
+        default: false
+      prometheus_config_flags_extra:
+        description:
+          - "Additional configuration flags passed to prometheus binary at startup"
+          - "Example: prometheus_config_flags_extra: { alertmanager.timeout: 10s }"
+        type: "dict"
+      prometheus_alertmanager_config:
+        description:
+          - "Alertmanager configuration as a list in YAML format."
+        type: "list"
+        elements: "str"
+      prometheus_alert_relabel_configs:
+        description:
+          - "Alert relabeling rules as a list in YAML format."
+        type: "list"
+        elements: "str"
+      prometheus_global:
+        description:
+          - "Prometheus global config."
+        type: "dict"
+        default:
+          scrape_interval: "15s"
+          scrape_timeout: "10s"
+          evaluation_interval: "15s"
+      prometheus_remote_write:
+        description:
+          - "Remote write configuration."
+        type: "list"
+        elements: "str"
+      prometheus_remote_read:
+        description:
+          - "Remote read configuration."
+        type: "list"
+        elements: "str"
+      prometheus_external_labels:
+        description: "Additional labels added to all time series and alerts when communicating with external systems"
+        type: "dict"
+        default:
+          environment: "{{ ansible_fqdn | default(ansible_host) | default(inventory_hostname) }}"
+      prometheus_targets:
+        description:
+          - "Targets which will be scraped via file-based service discovery."
+        type: "dict"
+      prometheus_scrape_configs:
+        description:
+          - "Prometheus scrape job configurations."
+        type: "list"
+        elements: "dict"
+      prometheus_config_file:
+        description: "Custom prometheus configuration file template"
+        default: "prometheus.yml.j2"
+      prometheus_alert_rules:
+        description:
+          - "List of alerting rules deployed to rules/ansible_managed.yml."
+        type: "list"
+        elements: "dict"
+      prometheus_alert_rules_files:
+        description:
+          - "Paths to custom alerting rule files (globs)."
+        type: "list"
+        elements: "str"
+        default:
+          - "prometheus/rules/*.yml"
+          - "prometheus/rules/*.yaml"
+      prometheus_static_targets_files:
+        description:
+          - "Paths to custom static target files (copied to file_sd/)."
+        type: "list"
+        elements: "str"
+        default:
+          - "prometheus/targets/*.yml"
+          - "prometheus/targets/*.json"
+      prometheus_scrape_config_files:
+        description:
+          - "Paths to custom scrape config files (v2.43.0+)."
+        type: "list"
+        elements: "str"
+        default:
+          - "prometheus/scrape_configs/*.yml"
+          - "prometheus/scrape_configs/*.json"
+      prometheus_system_group:
+        description: "System group for Prometheus."
+        type: "str"
+        default: "prometheus"
+      prometheus_system_user:
+        description: "System user for Prometheus."
+        type: "str"
+        default: "prometheus"
+      prometheus_stop_timeout:
+        description: "How long to wait for Prometheus to shutdown (systemd TimeoutStopSec)."
+        type: "str"
+        default: "600s"
+      prometheus_enable_service:
+        description: "Whether to start and enable the Prometheus service. Set to false for image builds."
+        type: bool
+        default: true
+      prometheus_local_cache_path:
+        description: "Local path to cache the downloaded archive"
+        default: "/tmp/prometheus-{{ ansible_facts['system'] | lower }}-{{ _prometheus_go_ansible_arch }}/{{ prometheus_version }}"
