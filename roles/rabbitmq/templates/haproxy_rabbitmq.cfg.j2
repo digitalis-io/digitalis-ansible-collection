@@ -14,7 +14,7 @@ defaults
         timeout server 50000
 
 listen stats
-        bind *:{{ rabbitmq_haproxy_stats_port }}
+        bind {{ rabbitmq_haproxy_stats_address }}:{{ rabbitmq_haproxy_stats_port }}
         mode http
         stats enable
         stats hide-version
@@ -28,7 +28,7 @@ listen rabbitmq
         timeout client  3h
         timeout server  3h
         option          clitcpka
-{% for node in groups['rabbitmq'] %}
+{% for node in groups[rabbitmq_haproxy_group] %}
 {% if rabbitmq_ssl is defined %}
         server          {{ node }} {{ node }}:{{ rabbitmq_amqp_ssl_port }}  check inter 5s rise 2 fall 3
 {% else %}
@@ -43,7 +43,7 @@ listen mgmt
         timeout client  3h
         timeout server  3h
         option          clitcpka
-{% for node in groups['rabbitmq'] %}
+{% for node in groups[rabbitmq_haproxy_group] %}
 {% if rabbitmq_ssl is defined %}
         server          {{ node }} {{ node }}:{{ rabbitmq_management_ssl_port }}  check inter 5s rise 2 fall 3
 {% else %}

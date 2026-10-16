@@ -54,13 +54,17 @@ rabbitmq_erlang_cookie: ""
 
 rabbitmq_cluster_members: []
 
-rabbitmq_plugins: "rabbitmq_management,rabbitmq_stream,rabbitmq_shovel,rabbitmq_shovel_management,rabbitmq_prometheus,rabbitmq_auth_backend_oauth2"
+# rabbitmq_management is required by the queue/vhost API tasks
+rabbitmq_plugins:
+  - rabbitmq_management
+  - rabbitmq_prometheus
 rabbitmq_log_level: info
 
 rabbitmq_backup_cronjob:
   enabled: false
   schedule: "0 0 * * *"
-  command: "/usr/local/bin/rabbitmqadmin --username={{ rabbitmq_admin_user }} --password={{ rabbitmq_admin_password }} -H {{ rabbitmq_management_listen_address }} -P {{ rabbitmq_management_port }} export /tmp/cluster.backup-$(date +'%s').json"
+  directory: /var/backups/rabbitmq
+  retention_days: 7
 
 rabbitmq_listen_address: "0.0.0.0"
 
@@ -79,16 +83,27 @@ rabbitmq_management_listen_address: "127.0.0.1"
 rabbitmq_nodename: "rabbit@{{ ansible_hostname }}"
 
 # HAProxy listener ports (frontend ports, distinct from backend RabbitMQ ports)
-rabbitmq_haproxy_amqp_port: 5672
+rabbitmq_haproxy_amqp_port: 5670
 rabbitmq_haproxy_amqp_ssl_port: 5673
-rabbitmq_haproxy_mgmt_port: 15672
+rabbitmq_haproxy_mgmt_port: 15670
 rabbitmq_haproxy_mgmt_ssl_port: 15673
 rabbitmq_haproxy_stats_port: 1936
 rabbitmq_haproxy_log_address: "127.0.0.1"
+rabbitmq_haproxy_stats_address: "127.0.0.1"
+rabbitmq_haproxy_group: rabbitmq
 
-# rabbitmq_keycloak_url: "https://keycloak.example.com/realms/test"
 # rabbitmq_cluster_name: "rabbit.example.com"
-# rabbitmq_keycloak_client_id: mgt_api_client
+
+# OAuth2 / OIDC (any provider). Setting rabbitmq_oauth2_issuer enables it.
+# rabbitmq_oauth2_issuer: "https://idp.example.com/realms/test"
+# rabbitmq_oauth2_client_id: mgt_api_client
+# rabbitmq_oauth2_client_secret: ""
+# rabbitmq_oauth2_jwks_url: ""
+# rabbitmq_oauth2_token_url: ""  # default: <issuer>/protocol/openid-connect/token
+rabbitmq_oauth2_resource_server_id: rabbitmq
+rabbitmq_oauth2_scopes: "openid profile rabbitmq.tag:administrator"
+rabbitmq_oauth2_verify_peer: true
+# rabbitmq_oauth2_ca_cert: /etc/rabbitmq/idp-ca.pem
 
 rabbitmq_cluster_tags: {}
 
@@ -109,6 +124,9 @@ rabbitmq_sysctl:
   net.ipv4.tcp_keepalive_probes: 3
   net.ipv4.ip_local_port_range: "1024 65535"
 
+rabbitmq_file_limits: 65535
+rabbitmq_quorum_commands_soft_limit: 64
+
 rabbitmq_channel_max: 128
 rabbitmq_initial_frame_max: 4096
 rabbitmq_frame_max: 131072
@@ -128,11 +146,9 @@ rabbitmq_ssl_ciphers:
   - DHE-DSS-AES128-GCM-SHA256
 
 rabbitmq_queue_defaults:
-  x-ha-policy: all
   x-queue-type: quorum
   x-delivery-limit: 20
   x-quorum-initial-group-size: 3
-  x-max-in-memory-length: 0
 
 rabbitmq_queues: []
 #  - name: test001

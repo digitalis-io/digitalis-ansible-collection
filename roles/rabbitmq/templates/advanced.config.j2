@@ -1,4 +1,3 @@
 [
- {rabbit, [{quorum_cluster_size, 2},
-           {quorum_commands_soft_limit, 64}]}
+ {rabbit, [{quorum_commands_soft_limit, {{ rabbitmq_quorum_commands_soft_limit }}}]}
 ].

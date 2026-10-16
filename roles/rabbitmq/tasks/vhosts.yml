@@ -15,4 +15,6 @@
     password: "{{ rabbitmq_admin_password }}"
     permissions: "{{ rabbitmq_admin_permissions }}"
     tags: administrator
+    update_password: on_create
+  no_log: true
   run_once: true

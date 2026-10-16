@@ -43,12 +43,15 @@ ssl_options.cacertfile           = {{ rabbitmq_ssl.ca }}
 ssl_options.certfile             = {{ rabbitmq_ssl.cert }}
 ssl_options.keyfile              = {{ rabbitmq_ssl.key }}
 
-ssl_options.versions.1           = {{ rabbitmq_ssl.versions | default('tlsv1.2') }}
+{% set _tls_versions = [rabbitmq_ssl.versions] if rabbitmq_ssl.versions is string else rabbitmq_ssl.versions | default(['tlsv1.2']) %}
+{% for v in _tls_versions %}
+ssl_options.versions.{{ loop.index }}           = {{ v }}
+{% endfor %}
 {% for c in rabbitmq_ssl_ciphers %}
 ssl_options.ciphers.{{ loop.index }} = {{ c }}
 {% endfor %}
 
-{% if rabbitmq_ssl.versions is defined and "tls1.3" in rabbitmq_ssl.versions %}
+{% if "tlsv1.3" in _tls_versions %}
 ssl_options.honor_cipher_order = false
 ssl_options.honor_ecc_order    = false
 {% else %}
@@ -65,32 +68,42 @@ prometheus.tcp.listener   = none
 
 queue_leader_locator = {{ rabbitmq_queue_leader_locator | default('balanced') }}
 cluster_partition_handling = {{ rabbitmq_cluster_partition_handling | default('pause_minority') }}
+{% if rabbitmq_cluster_partition_handling | default('pause_minority') == 'pause_if_all_down' %}
 cluster_partition_handling.pause_if_all_down.recover = {{ rabbitmq_cluster_partition_handling_pause_if_all_down | default('autoheal') }}
+{% for node in rabbitmq_cluster_members %}
+cluster_partition_handling.pause_if_all_down.nodes.{{ loop.index }} = rabbit@{{ node }}
+{% endfor %}
+{% endif %}
 
 auth_backends.1 = internal
 
-{% if rabbitmq_keycloak_url is defined and rabbitmq_keycloak_url != "" %}
+{% if rabbitmq_oauth2_issuer is defined and rabbitmq_oauth2_issuer != "" %}
 auth_backends.2 = rabbit_auth_backend_oauth2
 
 management.oauth_enabled = true
-management.oauth_client_id = {{ rabbitmq_keycloak_client_id }}
-management.oauth_scopes = {{ rabbitmq_keycloak_scopes | default('openid profile rabbitmq.tag:administrator') }}
-management.oauth_provider_url = {{ rabbitmq_keycloak_url }}
+management.oauth_client_id = {{ rabbitmq_oauth2_client_id }}
+management.oauth_scopes = {{ rabbitmq_oauth2_scopes }}
+management.oauth_provider_url = {{ rabbitmq_oauth2_issuer }}
 
-auth_oauth2.resource_server_id = rabbitmq
+auth_oauth2.resource_server_id = {{ rabbitmq_oauth2_resource_server_id }}
 auth_oauth2.preferred_username_claims.1 = preferred_username
 auth_oauth2.preferred_username_claims.2 = user_name
 auth_oauth2.preferred_username_claims.3 = username
 auth_oauth2.additional_scopes_key = extra_scope
-auth_oauth2.issuer = {{ rabbitmq_keycloak_url }}
-auth_oauth2.https.cacertfile = {{ rabbitmq_ssl.ca }}
-{% if rabbitmq_keycloak_jwks_url is defined and rabbitmq_keycloak_jwks_url != "" %}
-auth_oauth2.jwks_url = {{ rabbitmq_keycloak_jwks_url }}
+auth_oauth2.issuer = {{ rabbitmq_oauth2_issuer }}
+{% if rabbitmq_oauth2_ca_cert is defined and rabbitmq_oauth2_ca_cert != "" %}
+auth_oauth2.https.cacertfile = {{ rabbitmq_oauth2_ca_cert }}
 {% endif %}
-
+{% if rabbitmq_oauth2_jwks_url is defined and rabbitmq_oauth2_jwks_url != "" %}
+auth_oauth2.jwks_url = {{ rabbitmq_oauth2_jwks_url }}
+{% endif %}
+{% if rabbitmq_oauth2_verify_peer | bool %}
+auth_oauth2.https.peer_verification = verify_peer
+auth_oauth2.https.hostname_verification = wildcard
+{% else %}
 auth_oauth2.https.peer_verification = verify_none
 auth_oauth2.https.hostname_verification = none
-
+{% endif %}
 {% endif %}
 
 {% if rabbitmq_load_definitions_file is defined and rabbitmq_load_definitions_file != "" %}

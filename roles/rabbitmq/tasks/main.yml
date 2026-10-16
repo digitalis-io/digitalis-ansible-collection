@@ -1,9 +1,15 @@
 ---
-- name: Require an admin password
+- name: Validate role variables
   ansible.builtin.assert:
     that:
       - rabbitmq_admin_password | length > 0
-    fail_msg: rabbitmq_admin_password must be set
+      - rabbitmq_plugins is not string
+      - rabbitmq_plugins | length == 0 or 'rabbitmq_management' in rabbitmq_plugins
+      - rabbitmq_cluster_members | length < 2 or rabbitmq_erlang_cookie | length > 0
+      - rabbitmq_oauth2_issuer is not defined or (rabbitmq_oauth2_client_id is defined and rabbitmq_oauth2_client_secret is defined)
+    fail_msg: >-
+      rabbitmq_admin_password must be set; rabbitmq_plugins must be a list including rabbitmq_management;
+      clusters need rabbitmq_erlang_cookie; OAuth2 needs client_id and client_secret
     quiet: true
   tags:
     - always
@@ -68,10 +74,12 @@
           -s init stop
       register: rabbitmq_cmd_erlang_ssl_path
       changed_when: false
+      when: rabbitmq_ssl is defined
 
     - name: Save Erlang SSL path fact
       ansible.builtin.set_fact:
         rabbitmq_erlang_ssl_path: "{{ rabbitmq_cmd_erlang_ssl_path.stdout }}"
+      when: rabbitmq_ssl is defined
 
     - name: Write inter-node TLS config
       ansible.builtin.template:
@@ -100,6 +108,7 @@
         group: rabbitmq
         mode: "0400"
       when: rabbitmq_erlang_cookie is defined and rabbitmq_erlang_cookie != ""
+      no_log: true
       notify: Restart rabbitmq
 
     - name: Write rabbitmq.conf
@@ -120,11 +129,11 @@
   tags: plugins
   ansible.builtin.copy:
     dest: /etc/rabbitmq/enabled_plugins
-    content: "[{{ rabbitmq_plugins }}]."
+    content: "[{{ rabbitmq_plugins | join(',') }}]."
     mode: "0644"
     owner: rabbitmq
     group: rabbitmq
-  when: rabbitmq_plugins != ""
+  when: rabbitmq_plugins | length > 0
   notify: Restart rabbitmq
 
 - name: Ensure RabbitMQ is started and enabled
@@ -173,9 +182,11 @@
         dest: /etc/haproxy/haproxy.cfg
         src: haproxy_rabbitmq.cfg.j2
         mode: "0644"
+        validate: haproxy -c -f %s
       notify: Restart haproxy
 
     - name: Ensure HAProxy is started
       ansible.builtin.systemd:
         name: haproxy
-        state: restarted
+        state: started
+        enabled: true

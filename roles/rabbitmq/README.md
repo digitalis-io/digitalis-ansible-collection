@@ -10,7 +10,7 @@
 
 # rabbitmq
 
-Ansible role to install, configure, and manage RabbitMQ on RHEL/Rocky Linux and Debian/Ubuntu systems. Supports single-node and clustered deployments, TLS, OAuth2/Keycloak authentication, queue management with dead-letter queues, and optional HAProxy integration.
+Ansible role to install, configure, and manage RabbitMQ on RHEL/Rocky Linux and Debian/Ubuntu systems. Supports single-node and clustered deployments, TLS, OAuth2/OIDC authentication, queue management with dead-letter queues, and optional HAProxy integration.
 
 ## Requirements
 
@@ -124,14 +124,12 @@ ansible-playbook -i inventory playbook.yml
             max_priority: 10
             vhost: /myapp
         rabbitmq_queue_defaults:
-          x-ha-policy: all
-          x-queue-type: quorum
+                  x-queue-type: quorum
           x-delivery-limit: 20
           x-quorum-initial-group-size: 3
-          x-max-in-memory-length: 0
-```
+        ```
 
-### OAuth2/Keycloak authentication
+### OAuth2/OIDC authentication
 
 ```yaml
 - hosts: rabbitmq
@@ -140,16 +138,16 @@ ansible-playbook -i inventory playbook.yml
       vars:
         rabbitmq_admin_user: admin
         rabbitmq_admin_password: "s3cur3p4ss"
-        rabbitmq_keycloak_url: "https://keycloak.example.com/realms/myrealm"
-        rabbitmq_keycloak_client_id: mgt_api_client
-        rabbitmq_keycloak_client_secret: "my-client-secret"
+        rabbitmq_oauth2_issuer: "https://keycloak.example.com/realms/myrealm"
+        rabbitmq_oauth2_client_id: mgt_api_client
+        rabbitmq_oauth2_client_secret: "my-client-secret"
         rabbitmq_queues:
           - name: events
             create_dlq: true
             vhost: /
 ```
 
-When `rabbitmq_keycloak_url`, `rabbitmq_keycloak_client_id`, and `rabbitmq_keycloak_client_secret` are all defined, the role authenticates to the RabbitMQ API via OAuth2 bearer token rather than basic auth.
+When `rabbitmq_oauth2_issuer`, `rabbitmq_oauth2_client_id`, and `rabbitmq_oauth2_client_secret` are all defined, the role authenticates to the RabbitMQ API via OAuth2 bearer token rather than basic auth.
 
 ### With HAProxy
 
@@ -176,7 +174,7 @@ When `rabbitmq_keycloak_url`, `rabbitmq_keycloak_client_id`, and `rabbitmq_keycl
 | `rabbitmq_log_level` | string | `info` | Log level: `debug`, `info`, `warning`, `error` |
 | `rabbitmq_listen_address` | string | `0.0.0.0` | Interface RabbitMQ listens on |
 | `rabbitmq_use_longname` | bool | `false` | Use fully-qualified node names |
-| `rabbitmq_plugins` | string | `rabbitmq_management,...` | Comma-separated list of enabled plugins |
+| `rabbitmq_plugins` | list | `[rabbitmq_management, rabbitmq_prometheus]` | Enabled plugins; must include `rabbitmq_management` |
 
 ### Networking / Protocol Tuning
 
@@ -287,22 +285,20 @@ Default queue arguments applied to all queues:
 
 ```yaml
 rabbitmq_queue_defaults:
-  x-ha-policy: all
   x-queue-type: quorum
   x-delivery-limit: 20
   x-quorum-initial-group-size: 3
-  x-max-in-memory-length: 0
 ```
 
-### OAuth2 / Keycloak
+### OAuth2 / OIDC
 
-All three variables must be defined to activate OAuth2 authentication for queue management API calls.
+Setting `rabbitmq_oauth2_issuer` enables the OAuth2 backend; `client_id` and `client_secret` are required. TLS verification is on by default (`rabbitmq_oauth2_verify_peer`). Optional: `rabbitmq_oauth2_token_url`, `rabbitmq_oauth2_jwks_url`, `rabbitmq_oauth2_ca_cert`, `rabbitmq_oauth2_scopes`, `rabbitmq_oauth2_resource_server_id`.
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
-| `rabbitmq_keycloak_url` | string | unset | Keycloak realm URL, e.g. `https://keycloak.example.com/realms/myrealm` |
-| `rabbitmq_keycloak_client_id` | string | unset | OAuth2 client ID |
-| `rabbitmq_keycloak_client_secret` | string | unset | OAuth2 client secret |
+| `rabbitmq_oauth2_issuer` | string | unset | OIDC issuer URL, e.g. `https://keycloak.example.com/realms/myrealm` |
+| `rabbitmq_oauth2_client_id` | string | unset | OAuth2 client ID |
+| `rabbitmq_oauth2_client_secret` | string | unset | OAuth2 client secret |
 
 ### HAProxy
 
@@ -316,7 +312,8 @@ All three variables must be defined to activate OAuth2 authentication for queue 
 |----------|------|---------|-------------|
 | `rabbitmq_backup_cronjob.enabled` | bool | `false` | Enable automated backup cron job |
 | `rabbitmq_backup_cronjob.schedule` | string | `0 0 * * *` | Cron schedule (daily at midnight) |
-| `rabbitmq_backup_cronjob.command` | string | rabbitmqadmin export | Command to run. Exports cluster definition to `/tmp/`. |
+| `rabbitmq_backup_cronjob.directory` | string | `/var/backups/rabbitmq` | Backup directory (mode 0700) |
+| `rabbitmq_backup_cronjob.retention_days` | int | `7` | Days to keep definition exports |
 
 ```yaml
 rabbitmq_backup_cronjob:

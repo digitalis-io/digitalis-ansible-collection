@@ -1,4 +1,42 @@
 ---
+- name: Create RabbitMQ backup directory
+  ansible.builtin.file:
+    path: "{{ rabbitmq_backup_cronjob.directory }}"
+    state: directory
+    mode: "0700"
+    owner: root
+    group: root
+  when: rabbitmq_backup_cronjob.enabled | bool
+
+- name: Write rabbitmqadmin credentials file
+  ansible.builtin.copy:
+    dest: /root/.rabbitmqadmin.conf
+    mode: "0600"
+    owner: root
+    group: root
+    content: |
+      [default]
+      hostname = "{{ rabbitmq_management_listen_address }}"
+      port = {{ rabbitmq_management_port }}
+      username = "{{ rabbitmq_admin_user }}"
+      password = "{{ rabbitmq_admin_password }}"
+  no_log: true
+  when: rabbitmq_backup_cronjob.enabled | bool
+
+- name: Write RabbitMQ backup script
+  ansible.builtin.copy:
+    dest: /usr/local/sbin/rabbitmq-backup
+    mode: "0700"
+    owner: root
+    group: root
+    content: |
+      #!/bin/sh
+      set -e
+      dir={{ rabbitmq_backup_cronjob.directory }}
+      /usr/local/bin/rabbitmqadmin --config /root/.rabbitmqadmin.conf definitions export --file "$dir/cluster.backup-$(date +%s).json"
+      find "$dir" -name 'cluster.backup-*.json' -mtime +{{ rabbitmq_backup_cronjob.retention_days }} -delete
+  when: rabbitmq_backup_cronjob.enabled | bool
+
 - name: Enable RabbitMQ backup cronjob
   ansible.builtin.copy:
     dest: /etc/cron.d/rabbitmq-backup
@@ -6,5 +44,11 @@
     owner: root
     group: root
     content: |
-      {{ rabbitmq_backup_cronjob.schedule }} root {{ rabbitmq_backup_cronjob.command }}
+      {{ rabbitmq_backup_cronjob.schedule }} root /usr/local/sbin/rabbitmq-backup
   when: rabbitmq_backup_cronjob.enabled | bool
+
+- name: Remove RabbitMQ backup cronjob
+  ansible.builtin.file:
+    path: /etc/cron.d/rabbitmq-backup
+    state: absent
+  when: not rabbitmq_backup_cronjob.enabled | bool
