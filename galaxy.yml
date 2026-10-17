@@ -9,6 +9,8 @@ description: Ansible roles maintained by Digitalis.IO
 license:
   - Apache-2.0
 tags: [openbao, vault, secrets, security, infrastructure]
+dependencies:
+  axonops.axonops: ">=0.7.1"
 repository: https://github.com/digitalis-io/digitalis-ansible-collection
 issues: https://github.com/digitalis-io/digitalis-ansible-collection/issues
 documentation: https://github.com/digitalis-io/digitalis-ansible-collection#readme
