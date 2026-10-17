@@ -28,3 +28,7 @@ openbao_plugin_keys:
   - binary_name
   - args
   - env
+
+openbao_init_environment:
+  BAO_ADDR: "{{ openbao_init_address }}"
+  BAO_SKIP_VERIFY: "{{ openbao_init_skip_verify | bool | ternary('true', 'false') }}"

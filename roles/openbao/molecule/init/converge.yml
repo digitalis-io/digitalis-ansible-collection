@@ -1,0 +1,23 @@
+---
+- name: Converge
+  hosts: all
+  gather_facts: true
+  roles:
+    - role: openbao
+      vars:
+        openbao_service_manage: true
+        openbao_config_manage: true
+        openbao_storage_type: raft
+        openbao_storage_config:
+          path: /opt/openbao/data
+          node_id: molecule
+        openbao_api_addr: "http://127.0.0.1:8200"
+        openbao_cluster_addr: "http://127.0.0.1:8201"
+        openbao_listeners:
+          - address: "127.0.0.1:8200"
+            cluster_address: "127.0.0.1:8201"
+            tls_disable: true
+        openbao_init: true
+        openbao_init_secret_shares: 1
+        openbao_init_secret_threshold: 1
+        openbao_init_address: "http://127.0.0.1:8200"

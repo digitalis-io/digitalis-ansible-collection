@@ -114,6 +114,12 @@ unsealed:
 | `openbao_plugin_auto_register` | bool | `true` | `false` |
 | `openbao_plugin_download_behavior` | str | `fail` | `warn` |
 | `openbao_extra_config` | str | `""` | `seal "transit" { ... }` |
+| `openbao_init` | bool | `false` | `true` |
+| `openbao_init_secret_shares` | int | `5` | `3` |
+| `openbao_init_secret_threshold` | int | `3` | `2` |
+| `openbao_init_output_file` | str | `/root/openbao-init.json` | `/root/bao-init.json` |
+| `openbao_init_address` | str | `https://127.0.0.1:8200` | `http://127.0.0.1:8200` |
+| `openbao_init_skip_verify` | bool | `true` | `false` |
 
 `openbao_version` must be a full package version such as `2.7.1`; anything
 else fails before the host is changed.
@@ -141,6 +147,22 @@ Plugins require `openbao_config_manage`; the plugin options and directory are
 only written when at least one plugin is declared. The parent of
 `openbao_plugin_directory` must already exist.
 
+With `openbao_init: true` the role runs `bao operator init` once, on the first
+host of the play, when the cluster is not initialised yet; later runs change
+nothing. It needs `openbao_service_manage` with a started service. The unseal
+keys and root token are written to `openbao_init_output_file` on that host
+(`root` only, mode `0600`) and are not logged. Copy them to a secrets manager
+and delete the file. Nodes stay sealed unless auto-unseal is configured, so
+unseal them separately. Set `openbao_init_address` to `http://...` when the
+listener has `tls_disable`.
+
+```yaml
+- role: digitalis.digitalis.openbao
+  vars:
+    openbao_service_manage: true
+    openbao_init: true
+```
+
 ## Supported platforms
 
 Red Hat Enterprise Linux 9 and 10 (and rebuilds), Debian 12 and 13, Ubuntu 22.04 and 24.04.
@@ -151,6 +173,7 @@ Red Hat Enterprise Linux 9 and 10 (and rebuilds), Debian 12 and 13, Ubuntu 22.04
 MOLECULE_DISTRO=rockylinux9 molecule test
 MOLECULE_DISTRO=rockylinux9 molecule test -s invalid-version
 MOLECULE_DISTRO=rockylinux9 molecule test -s config
+MOLECULE_DISTRO=rockylinux9 molecule test -s init
 MOLECULE_DISTRO=rockylinux9 molecule test -s invalid-config
 ```
 

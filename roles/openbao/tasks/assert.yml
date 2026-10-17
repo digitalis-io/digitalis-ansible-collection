@@ -151,3 +151,25 @@
     fail_msg: "openbao_plugin_download_behavior must be fail or warn"
     quiet: true
   when: openbao_plugins | length > 0
+
+- name: Assert | Check cluster initialisation
+  ansible.builtin.assert:
+    that:
+      - openbao_init is boolean
+      - openbao_init_skip_verify is boolean
+      - openbao_init_secret_shares is integer
+      - openbao_init_secret_threshold is integer
+      - openbao_init_secret_shares >= 1
+      - openbao_init_secret_threshold >= 1
+      - openbao_init_secret_threshold <= openbao_init_secret_shares
+      - openbao_init_address is string
+      - openbao_init_address is match('^https?://')
+      - openbao_init_output_file is string
+      - openbao_init_output_file.startswith('/')
+      - not openbao_init or (openbao_service_manage and openbao_service_state in ['started', 'restarted'])
+    fail_msg: >-
+      openbao_init needs openbao_service_manage with openbao_service_state
+      started or restarted, openbao_init_secret_threshold between 1 and
+      openbao_init_secret_shares, an http(s) openbao_init_address and an
+      absolute openbao_init_output_file
+    quiet: true
