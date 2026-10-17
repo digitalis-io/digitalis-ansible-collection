@@ -1,0 +1,125 @@
+---
+- name: Gather package facts
+  ansible.builtin.package_facts:
+    strategy: all
+  when: "'packages' not in ansible_facts"
+  become: true
+  tags:
+    - prometheus_install
+
+- name: Create prometheus system group
+  ansible.builtin.group:
+    name: "{{ prometheus_system_group }}"
+    system: true
+    state: present
+  become: true
+  tags:
+    - prometheus_install
+
+- name: Create prometheus system user
+  ansible.builtin.user:
+    name: "{{ prometheus_system_user }}"
+    system: true
+    shell: /usr/sbin/nologin
+    group: "{{ prometheus_system_group }}"
+    home: "{{ prometheus_config_dir }}"
+    create_home: false
+  become: true
+  tags:
+    - prometheus_install
+
+- name: Create local cache directory
+  ansible.builtin.file:
+    path: "{{ prometheus_local_cache_path }}"
+    state: directory
+    mode: "0755"
+  become: false
+  delegate_to: "{{ 'localhost' if prometheus_download_local | bool else inventory_hostname }}"
+  check_mode: false
+  tags:
+    - prometheus_install
+
+- name: Download Prometheus archive
+  ansible.builtin.uri:
+    url: "{{ prometheus_binary_url }}"
+    dest: "{{ prometheus_local_cache_path }}/prometheus-{{ prometheus_version }}.tar.gz"
+    headers: "{{ prometheus_github_api_headers }}"
+    mode: "0644"
+    status_code: [200, 203, 204, 206, 300, 301, 302, 303, 304, 307, 308]
+    follow_redirects: all
+  register: _prometheus_download
+  until: _prometheus_download is succeeded
+  retries: 5
+  delay: 2
+  become: false
+  delegate_to: "{{ 'localhost' if prometheus_download_local | bool else inventory_hostname }}"
+  check_mode: false
+  tags:
+    - prometheus_install
+
+- name: Verify checksum
+  when: prometheus_checksums_url | length > 0
+  become: false
+  delegate_to: "{{ 'localhost' if prometheus_download_local | bool else inventory_hostname }}"
+  check_mode: false
+  tags:
+    - prometheus_install
+  block:
+    - name: Fetch checksum list
+      ansible.builtin.uri:
+        url: "{{ prometheus_checksums_url }}"
+        headers: "{{ prometheus_github_api_headers }}"
+        method: GET
+        return_content: true
+        status_code: [200, 203, 204, 206, 300, 301, 302, 303, 304, 307, 308]
+        follow_redirects: all
+      register: _prometheus_checksums_raw
+
+    - name: Parse checksum list
+      ansible.builtin.set_fact:
+        _prometheus_checksums: >-
+          {{ dict(_prometheus_checksums_raw.content.splitlines()
+             | map('regex_findall', '^([a-fA-F0-9]+)\s+(.+)$')
+             | map('flatten') | map('reverse')) }}
+
+    - name: Calculate checksum of downloaded archive
+      ansible.builtin.stat:
+        path: "{{ prometheus_local_cache_path }}/prometheus-{{ prometheus_version }}.tar.gz"
+        checksum_algorithm: sha256
+        get_checksum: true
+      register: _prometheus_local_checksum
+
+    - name: Assert correct checksum
+      ansible.builtin.assert:
+        that: >-
+          _prometheus_local_checksum.stat.checksum ==
+          _prometheus_checksums[prometheus_binary_url | basename]
+        success_msg: "Prometheus archive checksum verified"
+        fail_msg: "Prometheus archive checksum mismatch"
+
+- name: Unpack Prometheus archive
+  ansible.builtin.unarchive:
+    src: "{{ prometheus_local_cache_path }}/prometheus-{{ prometheus_version }}.tar.gz"
+    dest: "{{ prometheus_local_cache_path }}"
+    mode: "0755"
+    remote_src: "{{ not prometheus_download_local | bool }}"
+    extra_opts: ["--strip-components=1"]
+  become: false
+  delegate_to: "{{ 'localhost' if prometheus_download_local | bool else inventory_hostname }}"
+  check_mode: false
+  tags:
+    - prometheus_install
+
+- name: Install Prometheus binaries
+  ansible.builtin.copy:
+    src: "{{ prometheus_local_cache_path }}/{{ item }}"
+    dest: "{{ prometheus_binary_install_dir }}/{{ item }}"
+    remote_src: "{{ not prometheus_download_local | bool }}"
+    owner: root
+    group: root
+    mode: "0755"
+  loop: "{{ _prometheus_binaries }}"
+  become: true
+  notify: Restart prometheus
+  tags:
+    - prometheus_install

@@ -1,0 +1,27 @@
+---
+- name: Preflight checks
+  ansible.builtin.include_tasks:
+    file: preflight.yml
+  tags:
+    - prometheus_configure
+    - prometheus_install
+    - prometheus_run
+
+- name: Install Prometheus
+  ansible.builtin.include_tasks:
+    file: install.yml
+  tags:
+    - prometheus_install
+
+- name: Configure Prometheus
+  ansible.builtin.include_tasks:
+    file: configure.yml
+  tags:
+    - prometheus_configure
+
+- name: Manage Prometheus service
+  ansible.builtin.include_tasks:
+    file: service.yml
+  tags:
+    - prometheus_configure
+    - prometheus_run

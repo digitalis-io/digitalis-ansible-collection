@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- `prometheus`: role moved in from ansible-role-prometheus.
+
 ## 0.1.0
 
 - `openbao`: role imported from ansible-role-openbao by Robert de Bock and
