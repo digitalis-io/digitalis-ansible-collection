@@ -124,3 +124,30 @@ argument_specs:
         type: str
         default: ""
         description: Raw HCL appended to the server configuration.
+      openbao_init:
+        type: bool
+        default: false
+        description:
+          - Initialise the cluster with C(bao operator init) on the first host of the play when it is not initialised yet.
+          - Requires O(openbao_service_manage) and a started service.
+          - The unseal keys and root token are written to O(openbao_init_output_file).
+      openbao_init_secret_shares:
+        type: int
+        default: 5
+        description: Number of unseal key shares to generate.
+      openbao_init_secret_threshold:
+        type: int
+        default: 3
+        description: Number of key shares needed to unseal. Must not exceed O(openbao_init_secret_shares).
+      openbao_init_output_file:
+        type: str
+        default: /root/openbao-init.json
+        description: File on the initialised host that receives the init output, readable by root only.
+      openbao_init_address:
+        type: str
+        default: "https://127.0.0.1:8200"
+        description: Server address used by the init commands.
+      openbao_init_skip_verify:
+        type: bool
+        default: true
+        description: Skip TLS verification for the init commands, needed by the packaged self-signed certificate.

@@ -12,6 +12,10 @@
         openbao_listeners: "{{ openbao_test_case.vars.listeners | default([{'address': '127.0.0.1:8200', 'tls_disable': true}]) }}"
         openbao_plugins: "{{ openbao_test_case.vars.plugins | default([]) }}"
         openbao_plugin_download_behavior: "{{ openbao_test_case.vars.download_behavior | default('fail') }}"
+        openbao_service_manage: "{{ openbao_test_case.vars.service_manage | default(false) }}"
+        openbao_init: "{{ openbao_test_case.vars.init | default(false) }}"
+        openbao_init_secret_shares: "{{ openbao_test_case.vars.init_shares | default(5) }}"
+        openbao_init_secret_threshold: "{{ openbao_test_case.vars.init_threshold | default(3) }}"
         openbao_extra_config: "{{ openbao_test_case.vars.extra_config | default('') }}"
 
     - name: Fail because the role accepted invalid input

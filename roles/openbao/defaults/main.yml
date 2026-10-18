@@ -92,3 +92,19 @@ openbao_plugin_download_behavior: fail
 
 # Raw HCL appended to the server configuration, for example a seal stanza.
 openbao_extra_config: ""
+
+# Initialise the cluster with "bao operator init" on the first host of the
+# play, only when it is not initialised yet. Requires openbao_service_manage
+# and a started service. The unseal keys and root token are written to
+# openbao_init_output_file (root only, mode 0600) on that host. Move them to a
+# secrets manager and remove the file. The cluster is left sealed unless
+# auto-unseal is configured; other nodes must be unsealed separately.
+openbao_init: false
+openbao_init_secret_shares: 5
+openbao_init_secret_threshold: 3
+openbao_init_output_file: /root/openbao-init.json
+
+# Address used by the init commands and whether to skip TLS verification, which
+# the packaged self-signed certificate needs.
+openbao_init_address: "https://127.0.0.1:8200"
+openbao_init_skip_verify: true

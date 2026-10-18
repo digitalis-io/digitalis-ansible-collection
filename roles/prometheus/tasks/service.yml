@@ -1,0 +1,55 @@
+---
+- name: Deploy Prometheus systemd unit
+  ansible.builtin.template:
+    src: prometheus.service.j2
+    dest: /etc/systemd/system/prometheus.service
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: Restart prometheus
+  tags:
+    - prometheus_configure
+    - prometheus_run
+
+- name: Configure SELinux port
+  ansible.builtin.command:
+    cmd: >
+      semanage port -a -t http_port_t -p tcp
+      {{ ('//' ~ prometheus_web_listen_address) | ansible.builtin.urlsplit('port') }}
+  become: true
+  changed_when: prometheus_selinux_port.rc == 0
+  failed_when:
+    - prometheus_selinux_port.rc != 0
+    - "'already defined' not in prometheus_selinux_port.stderr"
+  register: prometheus_selinux_port
+  when:
+    - ansible_facts['selinux'] is defined
+    - ansible_facts['selinux'].status == "enabled"
+  tags:
+    - prometheus_configure
+
+- name: Enable and start Prometheus service
+  ansible.builtin.systemd:
+    daemon_reload: true
+    name: prometheus
+    state: started
+    enabled: true
+  become: true
+  when:
+    - prometheus_enable_service | bool
+    - not ansible_check_mode
+  tags:
+    - prometheus_run
+
+- name: Verify Prometheus service is running
+  ansible.builtin.service_facts: {}
+  register: _prometheus_service_status
+  until: "_prometheus_service_status.ansible_facts.services['prometheus.service'].state == 'running'"
+  retries: 10
+  delay: 5
+  when:
+    - prometheus_enable_service | bool
+    - not ansible_check_mode
+  tags:
+    - prometheus_run

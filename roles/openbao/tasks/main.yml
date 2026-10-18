@@ -24,3 +24,8 @@
     enabled: "{{ openbao_service_enabled }}"
     state: "{{ openbao_service_state }}"
   when: openbao_service_manage
+
+- name: Initialise OpenBao cluster
+  ansible.builtin.import_tasks:
+    file: init.yml
+  when: openbao_init

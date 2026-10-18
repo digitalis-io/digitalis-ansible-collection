@@ -1,0 +1,126 @@
+---
+# Prometheus version to install. Set to "latest" to auto-discover.
+prometheus_version: "3.13.4"
+
+# Download URLs (override for mirrors or air-gapped installs)
+prometheus_binary_url: "https://github.com/{{ _prometheus_repo }}/releases/download/v{{ prometheus_version }}/\
+                        prometheus-{{ prometheus_version }}.{{ ansible_facts['system'] | lower }}-{{ _prometheus_go_ansible_arch }}.tar.gz"
+prometheus_checksums_url: "https://github.com/{{ _prometheus_repo }}/releases/download/v{{ prometheus_version }}/sha256sums.txt"
+
+# System user and group
+prometheus_system_user: prometheus
+prometheus_system_group: prometheus
+
+# Directory layout
+prometheus_db_dir: /var/lib/prometheus
+prometheus_config_dir: /etc/prometheus
+prometheus_binary_install_dir: /usr/local/bin
+prometheus_read_only_dirs: []
+
+# Network
+prometheus_web_listen_address: "0.0.0.0:9090"
+prometheus_web_external_url: ""
+prometheus_metrics_path: "/{{ (prometheus_web_external_url + '/metrics') | regex_replace('^(.*://)?(.*?)/') }}"
+
+# Web config (TLS and basic auth)
+# See https://github.com/prometheus/exporter-toolkit/blob/master/docs/web-configuration.md
+prometheus_web_config:
+  tls_server_config: {}
+  http_server_config: {}
+  basic_auth_users: {}
+
+# Storage
+prometheus_storage_retention: "30d"
+prometheus_storage_retention_size: "0"
+
+# Agent mode (optimises Prometheus for remote write, disables querying/alerting)
+# https://prometheus.io/blog/2021/11/16/agent/
+prometheus_agent_mode: false
+
+# Additional command-line flags as a dict
+# Example: { storage.tsdb.retention: 15d, alertmanager.timeout: 10s }
+prometheus_config_flags_extra: {}
+
+# Global settings
+prometheus_global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  evaluation_interval: 15s
+
+# External labels attached to all time series and alerts
+prometheus_external_labels:
+  environment: "{{ ansible_fqdn | default(ansible_host) | default(inventory_hostname) }}"
+
+# Alertmanager configuration
+prometheus_alertmanager_config: []
+# prometheus_alertmanager_config:
+#   - scheme: https
+#     path_prefix: alertmanager/
+#     basic_auth:
+#       username: user
+#       password: pass
+#     static_configs:
+#       - targets: ["127.0.0.1:9093"]
+
+# Alert relabel configs
+prometheus_alert_relabel_configs: []
+
+# Remote write / read
+prometheus_remote_write: []
+prometheus_remote_read: []
+
+# File-based service discovery targets
+# Each key becomes a file in {{ prometheus_config_dir }}/file_sd/<key>.yml
+prometheus_targets: {}
+#  node:
+#    - targets:
+#        - localhost:9100
+#      labels:
+#        env: test
+
+# Scrape configurations
+prometheus_scrape_configs:
+  - job_name: "prometheus"
+    metrics_path: "{{ prometheus_metrics_path }}"
+    static_configs:
+      - targets:
+          - "{{ ansible_fqdn | default(ansible_host) | default('localhost') }}:9090"
+  - job_name: "node"
+    file_sd_configs:
+      - files:
+          - "{{ prometheus_config_dir }}/file_sd/node.yml"
+
+# Alternative config file template name (searched in ansible templates path)
+prometheus_config_file: "prometheus.yml.j2"
+
+# Alert rules (deployed to rules/ansible_managed.yml)
+prometheus_alert_rules: []
+
+# Paths to custom alert rule files (globs, copied to rules/)
+prometheus_alert_rules_files:
+  - prometheus/rules/*.yml
+  - prometheus/rules/*.yaml
+
+# Paths to custom static target files (copied to file_sd/)
+prometheus_static_targets_files:
+  - prometheus/targets/*.yml
+  - prometheus/targets/*.json
+
+# Paths to custom scrape config files (copied to scrape_configs/, v2.43.0+)
+prometheus_scrape_config_files:
+  - prometheus/scrape_configs/*.yml
+  - prometheus/scrape_configs/*.json
+
+# Systemd service options
+prometheus_stop_timeout: "600s"
+
+# Whether to start and enable the Prometheus service
+# Set to false for image builds (Packer) or testing without systemd
+prometheus_enable_service: true
+
+# Download and verify the archive on the target host (false) or on the Ansible
+# controller and copy it over (true, for targets without internet access)
+prometheus_download_local: false
+
+# Path used to cache the downloaded archive, on the host that downloads it
+prometheus_local_cache_path: "/tmp/prometheus-{{ ansible_facts['system'] | lower }}-{{ _prometheus_go_ansible_arch }}/{{ prometheus_version }}"

@@ -1,0 +1,33 @@
+---
+galaxy_info:
+  author: Digitalis.IO
+  description: Prometheus monitoring system configuration and management
+  company: Digitalis.IO
+  license: Apache-2.0
+  min_ansible_version: "2.15"
+  platforms:
+    - name: EL
+      versions:
+        - "9"
+        - "10"
+    - name: Ubuntu
+      versions:
+        - jammy
+        - noble
+    - name: Debian
+      versions:
+        - bookworm
+        - trixie
+  galaxy_tags:
+    - prometheus
+    - monitoring
+    - metrics
+    - alerts
+    - alerting
+    - observability
+    - molecule
+    - cloud
+  role_name: prometheus
+  namespace: digitalis
+
+dependencies: []

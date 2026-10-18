@@ -1,0 +1,46 @@
+---
+# Scenario: Applying the role again does not re-initialise is realised by the
+# Molecule idempotence step.
+- name: Verify
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: "Scenario: The cluster is initialised | query health endpoint"
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8200/v1/sys/health
+        status_code: [503]
+      register: openbao_test_health
+      retries: 10
+      delay: 2
+      until: openbao_test_health.status == 503
+
+    - name: "Scenario: The cluster is initialised | assert initialised and sealed"
+      ansible.builtin.assert:
+        that:
+          - openbao_test_health.json.initialized
+          - openbao_test_health.json.sealed
+
+    - name: "Scenario: The init output is stored for root only | stat the file"
+      ansible.builtin.stat:
+        path: /root/openbao-init.json
+      register: openbao_test_init_file
+
+    - name: "Scenario: The init output is stored for root only | assert ownership and mode"
+      ansible.builtin.assert:
+        that:
+          - openbao_test_init_file.stat.exists
+          - openbao_test_init_file.stat.pw_name == 'root'
+          - openbao_test_init_file.stat.mode == '0600'
+
+    - name: "Scenario: The init output is stored for root only | read the file"
+      ansible.builtin.slurp:
+        path: /root/openbao-init.json
+      register: openbao_test_init_content
+      no_log: true
+
+    - name: "Scenario: The init output is stored for root only | assert keys and token are present"
+      ansible.builtin.assert:
+        that:
+          - (openbao_test_init_content.content | b64decode | from_json).unseal_keys_b64 | length == 1
+          - (openbao_test_init_content.content | b64decode | from_json).root_token | length > 0
+      no_log: true
