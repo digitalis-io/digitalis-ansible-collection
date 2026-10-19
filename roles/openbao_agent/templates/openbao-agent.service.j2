@@ -33,7 +33,7 @@ ReadWritePaths={{ openbao_agent_data_dir }}
 {% if openbao_agent_token_sink_enabled and (openbao_agent_token_sink_path | dirname) != openbao_agent_data_dir %}
 ReadWritePaths=-{{ openbao_agent_token_sink_path | dirname }}
 {% endif %}
-{% for dir in openbao_agent_template_dest_dirs %}
+{% for dir in _openbao_agent_template_dest_dirs %}
 ReadWritePaths=-{{ dir }}
 {% endfor %}
 

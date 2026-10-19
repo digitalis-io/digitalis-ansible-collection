@@ -10,8 +10,8 @@
 - name: Assert | Check openbao_agent_auth_method
   ansible.builtin.assert:
     that:
-      - openbao_agent_auth_method in openbao_agent_auth_methods
-    fail_msg: "openbao_agent_auth_method must be one of {{ openbao_agent_auth_methods | join(', ') }}"
+      - openbao_agent_auth_method in _openbao_agent_auth_methods
+    fail_msg: "openbao_agent_auth_method must be one of {{ _openbao_agent_auth_methods | join(', ') }}"
     quiet: true
 
 - name: Assert | Check AppRole credentials
@@ -40,9 +40,9 @@
       Each entry in openbao_agent_templates needs an absolute destination,
       exactly one of contents, src or source, perms as a four digit octal
       string, exec_timeout only with exec_command, a destination directory
-      other than {{ openbao_agent_forbidden_dest_dirs | join(', ') }}, and
+      other than {{ _openbao_agent_forbidden_dest_dirs | join(', ') }}, and
       only these keys:
-      {{ openbao_agent_template_keys | join(', ') }}.
+      {{ _openbao_agent_template_keys | join(', ') }}.
       Invalid entries: {{ openbao_agent_invalid_templates | map(attribute='destination', default='<missing destination>') | join(', ') }}
     quiet: true
   vars:
@@ -54,10 +54,10 @@
               or t.destination is not string
               or not t.destination.startswith('/')
               or (['contents', 'src', 'source'] | select('in', t) | list | length) != 1
-              or (t.keys() | list | difference(openbao_agent_template_keys) | length) > 0
+              or (t.keys() | list | difference(_openbao_agent_template_keys) | length) > 0
               or (t.perms is defined and t.perms | string is not match('^0[0-7]{3}$'))
               or (t.exec_timeout is defined and t.exec_command is not defined)
-              or (t.destination | dirname) in openbao_agent_forbidden_dest_dirs -%}
+              or (t.destination | dirname) in _openbao_agent_forbidden_dest_dirs -%}
       {%-     set _ = bad.append(t if t is mapping else {}) -%}
       {%-   endif -%}
       {%- endfor -%}

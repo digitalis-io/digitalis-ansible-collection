@@ -38,7 +38,7 @@
 - name: Configure | Check template destination directories
   ansible.builtin.stat:
     path: "{{ item }}"
-  loop: "{{ openbao_agent_template_dest_dirs }}"
+  loop: "{{ _openbao_agent_template_dest_dirs }}"
   register: openbao_agent_dest_dir_stat
 
 - name: Configure | Create missing template destination directories
