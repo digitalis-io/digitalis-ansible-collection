@@ -1,0 +1,68 @@
+---
+- name: Get OAuth2 access token
+  ansible.builtin.uri:
+    url: "{{ rabbitmq_oauth2_token_url | default(rabbitmq_oauth2_issuer ~ '/protocol/openid-connect/token') }}"
+    validate_certs: "{{ rabbitmq_oauth2_verify_peer | bool }}"
+    ca_path: "{{ rabbitmq_oauth2_ca_cert | default(omit) }}"
+    method: POST
+    body_format: form-urlencoded
+    body:
+      client_id: "{{ rabbitmq_oauth2_client_id }}"
+      client_secret: "{{ rabbitmq_oauth2_client_secret }}"
+      grant_type: client_credentials
+    status_code:
+      - 200
+  register: rabbitmq_oauth2_token
+  no_log: true
+  run_once: true
+  when: rabbitmq_oauth2_issuer is defined and rabbitmq_oauth2_issuer != ""
+
+- name: Set RabbitMQ login credentials
+  ansible.builtin.set_fact:
+    rabbitmq_login_user: "{{ '' if rabbitmq_oauth2_token is not skipped else rabbitmq_admin_user }}"
+    rabbitmq_login_password: "{{ rabbitmq_oauth2_token.json.access_token if rabbitmq_oauth2_token is not skipped else rabbitmq_admin_password }}"
+  no_log: true
+
+- name: Create RabbitMQ queues
+  community.rabbitmq.rabbitmq_queue:
+    name: "{{ item.name }}"
+    arguments: >-
+      {{ rabbitmq_queue_defaults
+         | ansible.builtin.combine(
+             ({'x-dead-letter-exchange': '', 'x-dead-letter-routing-key': item.name ~ '-dlq'} if item.create_dlq | default(false) else {}),
+             item.arguments | default({})) }}
+    durable: "{{ item.durable | default(omit) }}"
+    max_length: "{{ item.max_length | default(omit) }}"
+    max_priority: "{{ item.max_priority | default(omit) }}"
+    state: "{{ item.state | default('present') }}"
+    vhost: "{{ item.vhost | default('/') }}"
+    login_protocol: "{{ 'https' if rabbitmq_ssl is defined else 'http' }}"
+    login_host: "{{ item.leader | default(rabbitmq_management_listen_address if rabbitmq_management_listen_address != '0.0.0.0' else inventory_hostname) }}"
+    login_port: "{{ (rabbitmq_management_ssl_port if rabbitmq_ssl is defined else rabbitmq_management_port) | int }}"
+    login_user: "{{ rabbitmq_login_user }}"
+    login_password: "{{ rabbitmq_login_password }}"
+    ca_cert: "{{ rabbitmq_ssl.ca | default(omit) }}"
+    client_cert: "{{ rabbitmq_ssl.cert | default(omit) }}"
+    client_key: "{{ rabbitmq_ssl.key | default(omit) }}"
+  loop: "{{ rabbitmq_queues }}"
+  no_log: true
+  run_once: true
+
+- name: Create dead letter queues
+  community.rabbitmq.rabbitmq_queue:
+    name: "{{ item.name }}-dlq"
+    arguments: "{{ rabbitmq_queue_defaults | ansible.builtin.combine(item.dlq_arguments | default({})) }}"
+    state: "{{ item.state | default('present') }}"
+    vhost: "{{ item.vhost | default('/') }}"
+    login_protocol: "{{ 'https' if rabbitmq_ssl is defined else 'http' }}"
+    login_host: "{{ item.leader | default(rabbitmq_management_listen_address if rabbitmq_management_listen_address != '0.0.0.0' else inventory_hostname) }}"
+    login_port: "{{ (rabbitmq_management_ssl_port if rabbitmq_ssl is defined else rabbitmq_management_port) | int }}"
+    login_user: "{{ rabbitmq_login_user }}"
+    login_password: "{{ rabbitmq_login_password }}"
+    ca_cert: "{{ rabbitmq_ssl.ca | default(omit) }}"
+    client_cert: "{{ rabbitmq_ssl.cert | default(omit) }}"
+    client_key: "{{ rabbitmq_ssl.key | default(omit) }}"
+  loop: "{{ rabbitmq_queues }}"
+  no_log: true
+  run_once: true
+  when: item.create_dlq | default(false)

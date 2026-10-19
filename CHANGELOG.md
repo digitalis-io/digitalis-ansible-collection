@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `rabbitmq`: role moved in from ansible-role-rabbitmq. The collection now
+  depends on `community.rabbitmq` and `ansible.posix`.
 - `prometheus`: role moved in from ansible-role-prometheus.
 
 ## 0.1.0

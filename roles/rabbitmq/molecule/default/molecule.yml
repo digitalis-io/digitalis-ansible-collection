@@ -1,0 +1,27 @@
+---
+driver:
+  name: docker
+platforms:
+  - name: instance
+    image: "${MOLECULE_IMAGE:-geerlingguy/docker-ubuntu2404-ansible}"
+    pre_build_image: true
+    privileged: true
+    command: /lib/systemd/systemd
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    cgroupns_mode: host
+dependency:
+  name: galaxy
+  options:
+    requirements-file: "${MOLECULE_SCENARIO_DIRECTORY}/requirements.yml"
+provisioner:
+  name: ansible
+  env:
+    ANSIBLE_ROLES_PATH: "${MOLECULE_PROJECT_DIRECTORY}/../"
+  inventory:
+    host_vars:
+      instance:
+        ansible_python_interpreter: auto
+        rabbitmq_admin_password: molecule-only-password
+verifier:
+  name: ansible

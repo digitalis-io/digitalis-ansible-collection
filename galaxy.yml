@@ -8,9 +8,11 @@ authors:
 description: Ansible roles maintained by Digitalis.IO
 license:
   - Apache-2.0
-tags: [openbao, vault, secrets, security, prometheus, monitoring, infrastructure]
 dependencies:
   axonops.axonops: ">=0.7.1"
+  community.rabbitmq: ">=1.0.0"
+  ansible.posix: ">=1.0.0"
+tags: [openbao, vault, secrets, security, prometheus, rabbitmq, monitoring, amqp, infrastructure]
 repository: https://github.com/digitalis-io/digitalis-ansible-collection
 issues: https://github.com/digitalis-io/digitalis-ansible-collection/issues
 documentation: https://github.com/digitalis-io/digitalis-ansible-collection#readme

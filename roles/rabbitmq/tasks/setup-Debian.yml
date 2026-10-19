@@ -1,0 +1,59 @@
+---
+- name: Install gnupg prerequisite
+  ansible.builtin.apt:
+    name: gnupg
+    state: present
+    update_cache: true
+
+- name: Ensure /usr/share/keyrings directory exists
+  ansible.builtin.file:
+    path: /usr/share/keyrings
+    state: directory
+    mode: "0755"
+
+- name: Download RabbitMQ team GPG key
+  ansible.builtin.get_url:
+    url: "{{ rabbitmq_apt_key_url }}"
+    dest: /tmp/rabbitmq-team.asc
+    mode: "0644"
+
+- name: Dearmor RabbitMQ team GPG key
+  ansible.builtin.command:
+    cmd: gpg --dearmor -o {{ rabbitmq_apt_key_path }} /tmp/rabbitmq-team.asc
+    creates: "{{ rabbitmq_apt_key_path }}"
+
+- name: Configure RabbitMQ APT repository
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/rabbitmq.list
+    mode: "0644"
+    content: |
+      {% for repo in rabbitmq_apt_repos %}
+      deb [arch={{ rabbitmq_apt_arch }} signed-by={{ rabbitmq_apt_key_path }}] {{ repo.url }}/{{ ansible_distribution | lower }}/{{ ansible_distribution_release }} {{ ansible_distribution_release }} main
+      deb-src [signed-by={{ rabbitmq_apt_key_path }}] {{ repo.url }}/{{ ansible_distribution | lower }}/{{ ansible_distribution_release }} {{ ansible_distribution_release }} main
+      {% endfor %}
+
+- name: Install Erlang packages
+  ansible.builtin.apt:
+    name: "{{ rabbitmq_erlang_packages }}"
+    state: present
+    update_cache: true
+  retries: 3
+  delay: 10
+  register: rabbitmq_install_result
+  until: rabbitmq_install_result is succeeded
+  tags:
+    - rabbitmq-server
+    - packages
+
+- name: Install RabbitMQ server
+  ansible.builtin.apt:
+    name: "rabbitmq-server={{ rabbitmq_version }}-1"
+    state: present
+    update_cache: true
+  retries: 3
+  delay: 10
+  register: rabbitmq_install_result
+  until: rabbitmq_install_result is succeeded
+  tags:
+    - rabbitmq-server
+    - packages

@@ -1,0 +1,52 @@
+global
+        log {{ rabbitmq_haproxy_log_address }}   local1
+        maxconn 4096
+
+defaults
+        log     global
+        mode    tcp
+        option  tcplog
+        retries 3
+        option redispatch
+        maxconn 2000
+        timeout connect 5000
+        timeout client 50000
+        timeout server 50000
+
+listen stats
+        bind {{ rabbitmq_haproxy_stats_address }}:{{ rabbitmq_haproxy_stats_port }}
+        mode http
+        stats enable
+        stats hide-version
+        stats realm Haproxy\ Statistics
+        stats uri /
+
+listen rabbitmq
+        bind {{ ansible_host }}:{{ rabbitmq_haproxy_amqp_ssl_port if rabbitmq_ssl is defined else rabbitmq_haproxy_amqp_port }}
+        mode            tcp
+        balance         roundrobin
+        timeout client  3h
+        timeout server  3h
+        option          clitcpka
+{% for node in groups[rabbitmq_haproxy_group] %}
+{% if rabbitmq_ssl is defined %}
+        server          {{ node }} {{ node }}:{{ rabbitmq_amqp_ssl_port }}  check inter 5s rise 2 fall 3
+{% else %}
+        server          {{ node }} {{ node }}:{{ rabbitmq_amqp_port }}  check inter 5s rise 2 fall 3
+{% endif %}
+{% endfor %}
+
+listen mgmt
+        bind {{ ansible_host }}:{{ rabbitmq_haproxy_mgmt_ssl_port if rabbitmq_ssl is defined else rabbitmq_haproxy_mgmt_port }}
+        mode            tcp
+        balance         roundrobin
+        timeout client  3h
+        timeout server  3h
+        option          clitcpka
+{% for node in groups[rabbitmq_haproxy_group] %}
+{% if rabbitmq_ssl is defined %}
+        server          {{ node }} {{ node }}:{{ rabbitmq_management_ssl_port }}  check inter 5s rise 2 fall 3
+{% else %}
+        server          {{ node }} {{ node }}:{{ rabbitmq_management_port }}  check inter 5s rise 2 fall 3
+{% endif %}
+{% endfor %}
