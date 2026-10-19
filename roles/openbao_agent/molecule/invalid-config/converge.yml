@@ -49,6 +49,18 @@
       - name: a listener on a non-loopback address
         vars: { listener: "0.0.0.0:8100" }
         expect: must be a loopback address
+      - name: a retry count that is not a number
+        vars: { retries: "many" }
+        expect: openbao_agent_retry_num_retries
+      - name: a TLS skip verify flag that is not a boolean
+        vars: { skip_verify: "maybe" }
+        expect: openbao_agent_tls_skip_verify
+      - name: an unsupported log level
+        vars: { log_level: verbose }
+        expect: openbao_agent_log_level
+      - name: an unsupported service state
+        vars: { service_state: paused }
+        expect: openbao_agent_service_state
   tasks:
     - name: Apply the role with each invalid configuration
       ansible.builtin.include_tasks: expect-rejection.yml

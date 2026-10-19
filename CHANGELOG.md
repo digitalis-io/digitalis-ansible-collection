@@ -5,6 +5,15 @@
 - `rabbitmq`: role moved in from ansible-role-rabbitmq. The collection now
   depends on `community.rabbitmq` and `ansible.posix`.
 - `prometheus`: role moved in from ansible-role-prometheus.
+- `openbao_agent`: complete the argument specs, add spec defaults for
+  `openbao_agent_auth_mount_path` and `openbao_agent_token_sink_path`, and
+  rewrite the variable descriptions.
+- `openbao_agent`: rename the internal variables `openbao_agent_auth_methods`,
+  `openbao_agent_forbidden_dest_dirs`, `openbao_agent_template_dest_dirs` and
+  `openbao_agent_template_keys` to `_openbao_agent_auth_methods`,
+  `_openbao_agent_forbidden_dest_dirs`, `_openbao_agent_template_dest_dirs` and
+  `_openbao_agent_template_keys`. They are not part of the role interface;
+  playbooks that overrode them must stop doing so.
 
 ## 0.1.0
 
