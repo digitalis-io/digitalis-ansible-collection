@@ -20,7 +20,7 @@
 - name: Configure | Write server configuration
   ansible.builtin.template:
     src: openbao.hcl.j2
-    dest: "{{ openbao_config_file }}"
+    dest: "{{ _openbao_config_file }}"
     owner: root
     group: openbao
     mode: "0640"

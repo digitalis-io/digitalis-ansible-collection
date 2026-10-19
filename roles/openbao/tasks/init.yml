@@ -1,7 +1,7 @@
 ---
 - name: Init | Wait for the server to answer
   ansible.builtin.command: bao operator init -status
-  environment: "{{ openbao_init_environment }}"
+  environment: "{{ _openbao_init_environment }}"
   register: openbao_init_status
   until: openbao_init_status.rc in [0, 2]
   retries: 30
@@ -15,7 +15,7 @@
     bao operator init -format=json
     -key-shares={{ openbao_init_secret_shares }}
     -key-threshold={{ openbao_init_secret_threshold }}
-  environment: "{{ openbao_init_environment }}"
+  environment: "{{ _openbao_init_environment }}"
   register: openbao_init_result
   when: openbao_init_status.rc == 2
   changed_when: true

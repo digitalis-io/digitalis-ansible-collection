@@ -10,50 +10,87 @@ argument_specs:
     options:
       prometheus_version:
         description:
-          - "Prometheus package version. Also accepts C(latest) as parameter."
+          - "Prometheus version to install, for example C(3.13.4), or C(latest) to resolve the newest GitHub release at run time (requires access to C(api.github.com); C(GITHUB_TOKEN) from the controller environment is sent if set)."
+          - "Used in the default download URLs and cache path, and to choose version-dependent behaviour: retention flags (2.7.0), C(--web.config.file) (2.24.0), C(scrape_config_files) (2.43.0), agent flag and console files (3.0.0)."
+          - "Changing it downloads the new archive, replaces the binaries and restarts the service."
+        type: "str"
         default: "3.13.4"
       prometheus_binary_url:
-        description: "URL of the Prometheus binaries .tar.gz file"
+        description:
+          - "URL of the Prometheus C(.tar.gz) release archive. Override for mirrors or air-gapped installs."
+          - "Its file name is used to look up the SHA-256 in the checksums file, so it must appear in C(prometheus_checksums_url). The archive must contain C(prometheus) and C(promtool) at its top level directory."
+          - "Downloaded to C(prometheus_local_cache_path) on the target, or on the controller when C(prometheus_download_local) is true."
+        type: "str"
         default: "https://github.com/{{ _prometheus_repo }}/releases/download/v{{ prometheus_version }}/prometheus-{{ prometheus_version }}.{{ ansible_facts['system'] | lower }}-{{ _prometheus_go_ansible_arch }}.tar.gz"
       prometheus_checksums_url:
-        description: "URL of the Prometheus checksums file"
+        description:
+          - "URL of the C(sha256sums) file used to verify the downloaded archive. Each line must be C(<sha256>  <file name>)."
+          - "Set to an empty string to skip checksum verification. A mismatch, or a missing entry for the archive file name, fails the play."
+        type: "str"
         default: "https://github.com/{{ _prometheus_repo }}/releases/download/v{{ prometheus_version }}/sha256sums.txt"
       prometheus_config_dir:
-        description: "Path to directory with Prometheus configuration"
+        description:
+          - "Directory for the Prometheus configuration. Holds C(prometheus.yml), C(web_config.yml), C(rules/), C(file_sd/), C(scrape_configs/) and, for versions below 3.0.0, C(consoles/) and C(console_libraries/)."
+          - "Created with mode 0775 and owned by C(prometheus_system_user). Also set as that user's home directory."
+          - "Changing it does not move existing files."
+        type: "str"
         default: "/etc/prometheus"
       prometheus_db_dir:
-        description: "Path to directory with Prometheus database"
+        description:
+          - "Directory for the time series database, passed as C(--storage.tsdb.path), or C(--storage.agent.path) in agent mode. It is the only writable path in the systemd unit."
+          - "Created with mode 0755 and owned by C(prometheus_system_user). Changing it restarts the service and does not move existing data."
+        type: "str"
         default: "/var/lib/prometheus"
       prometheus_read_only_dirs:
-        description: "Additional paths that Prometheus is allowed to read (useful for SSL certs outside of the config directory)"
+        description:
+          - "Additional paths Prometheus may read, added as C(ReadOnlyPaths) to the systemd unit. Needed for TLS certificates or other files outside C(prometheus_config_dir) and C(prometheus_db_dir), because the unit uses C(ProtectSystem=strict) where supported."
+          - "Changing it restarts the service."
         type: "list"
         elements: "str"
         default: []
       prometheus_binary_install_dir:
         description:
-          - "Directory to install binaries"
+          - "Directory where C(prometheus) and C(promtool) are installed, owned by root with mode 0755. Used in C(ExecStart) and by C(promtool) to validate the configuration and rules before they are deployed."
+          - "Changing it installs the binaries in the new location and restarts the service. Binaries in the old location are not removed."
+        type: "str"
         default: "/usr/local/bin"
       prometheus_web_listen_address:
-        description: "Address on which Prometheus will listen"
+        description:
+          - "Address and port Prometheus listens on, as C(host:port), passed as C(--web.listen-address). Validated against C(.+:\\d+$), otherwise the role fails."
+          - "On hosts with SELinux enabled the port is added to C(http_port_t). Changing it restarts the service."
+          - "Must not also be set in C(prometheus_config_flags_extra)."
+        type: "str"
         default: "0.0.0.0:9090"
       prometheus_web_config:
-        description: "A Prometheus web config yaml for configuring TLS and auth."
+        description:
+          - "Prometheus web configuration (TLS and basic auth) as a dict with all three keys C(tls_server_config), C(http_server_config) and C(basic_auth_users); omitting one fails the play."
+          - "C(web_config.yml) is written to C(prometheus_config_dir) and C(--web.config.file) is added (Prometheus 2.24.0+) only when at least one key is non-empty. Changes restart the service."
+          - "Replaces the whole default, so keep unused keys as C({}). See the exporter-toolkit web configuration documentation for the content of each key."
         type: "dict"
         default: {tls_server_config: {}, http_server_config: {}, basic_auth_users: {}}
       prometheus_web_external_url:
-        description: "External address on which Prometheus is available. Useful when behind reverse proxy."
+        description:
+          - "External URL under which Prometheus is reachable, passed as C(--web.external-url). Set it when running behind a reverse proxy or under a sub-path."
+          - "Also used to derive the default C(prometheus_metrics_path). Changing it restarts the service. Must not also be set in C(prometheus_config_flags_extra)."
+        type: "str"
         default: ""
       prometheus_metrics_path:
-        description: "Prometheus external metrics path"
+        description:
+          - "Path of the metrics endpoint. Only used as C(metrics_path) of the C(prometheus) job in the default C(prometheus_scrape_configs); it has no effect if you override that variable without referencing it."
+          - "The default is derived from C(prometheus_web_external_url) by dropping the scheme and host and appending C(/metrics)."
+        type: "str"
         default: "/{{ (prometheus_web_external_url + '/metrics') | regex_replace('^(.*://)?(.*?)/') }}"
       prometheus_storage_retention:
-        description: "Data retention period"
+        description:
+          - "How long to keep samples, for example C(30d) or C(15d), passed as C(--storage.tsdb.retention.time) (C(--storage.tsdb.retention) below Prometheus 2.7.0)."
+          - "Ignored in agent mode. Changing it restarts the service. Must not also be set in C(prometheus_config_flags_extra)."
+        type: "str"
         default: "30d"
       prometheus_storage_retention_size:
         description:
-          - "Data retention size limit."
-          - "Maximum number of bytes that can be stored for blocks."
-          - "Units supported: KB, MB, GB, TB, PB."
+          - "Maximum size of stored blocks, as a number with a unit (B, KB, MB, GB, TB, PB), passed as C(--storage.tsdb.retention.size). C(0) disables the size limit."
+          - "Not applied below Prometheus 2.7.0 or in agent mode. Changing it restarts the service."
+        type: "str"
         default: "0"
       prometheus_agent_mode:
         description:
@@ -64,24 +101,28 @@ argument_specs:
       prometheus_config_flags_extra:
         description:
           - "Additional configuration flags passed to prometheus binary at startup."
+          - "Keys are flag names without the leading dashes. A string value is rendered as C(--flag=value), a list as the flag repeated once per item, and an empty string or false as the bare flag. Other values (numbers, true) are dropped, so quote them."
+          - "Flags the role manages (C(config.file), C(web.listen-address), C(web.external-url), C(storage.tsdb.path), C(storage.tsdb.retention), C(storage.local.path), C(storage.local.retention)) are rejected. Changing it restarts the service."
           - "Example: prometheus_config_flags_extra: { alertmanager.timeout: 10s }"
         type: "dict"
         default: {}
       prometheus_alertmanager_config:
         description:
-          - "Alertmanager configuration entries written to the C(alerting.alertmanagers) section, for example C(static_configs)."
+          - "Alertmanager configuration entries written to the C(alerting.alertmanagers) section, for example C(static_configs). The section is omitted when the list is empty."
         type: "list"
         elements: "dict"
         default: []
       prometheus_alert_relabel_configs:
         description:
-          - "Alert relabeling rules as a list in YAML format."
+          - "Alert relabeling rules, as a list of Prometheus C(alert_relabel_configs) entries, applied before alerts are sent to Alertmanager."
+          - "Rendered under C(alerting) only when C(prometheus_alertmanager_config) is not empty; otherwise ignored. Changes reload the service."
         type: "list"
         elements: "dict"
         default: []
       prometheus_global:
         description:
-          - "Prometheus global config."
+          - "Content of the Prometheus C(global) section, for example C(scrape_interval), C(scrape_timeout) and C(evaluation_interval) (durations such as C(15s))."
+          - "Replaces the whole default dict, so set every key you need. C(external_labels) is rejected here; use C(prometheus_external_labels). Changes reload the service."
         type: "dict"
         default:
           scrape_interval: "15s"
@@ -106,7 +147,8 @@ argument_specs:
           environment: "{{ ansible_fqdn | default(ansible_host) | default(inventory_hostname) }}"
       prometheus_targets:
         description:
-          - "Targets which will be scraped via file-based service discovery."
+          - "Targets for file-based service discovery. Each key becomes C(<prometheus_config_dir>/file_sd/<key>.yml) with the value rendered as YAML, usually a list of C(targets) and C(labels) entries."
+          - "Every key must be referenced in C(prometheus_scrape_configs) as a C(file_sd_configs) file with that exact path, otherwise the role fails. Files for keys you remove are not deleted. Changes reload the service."
         type: "dict"
         default: {}
       prometheus_scrape_configs:
@@ -114,18 +156,33 @@ argument_specs:
           - "Prometheus scrape job configurations. Defaults to a C(prometheus) job scraping the local server and a C(node) job reading targets from C(file_sd/node.yml)."
         type: "list"
         elements: "dict"
+        default:
+          - job_name: prometheus
+            metrics_path: '{{ prometheus_metrics_path }}'
+            static_configs:
+              - targets:
+                  - '{{ ansible_fqdn | default(ansible_host) | default(''localhost'') }}:9090'
+          - file_sd_configs:
+              - files:
+                  - '{{ prometheus_config_dir }}/file_sd/node.yml'
+            job_name: node
       prometheus_config_file:
-        description: "Custom prometheus configuration file template"
+        description:
+          - "Name of the template used to render C(prometheus.yml), looked up in the Ansible template search path. Set it to use your own template instead of the one shipped with the role."
+          - "The result is validated with C(promtool check config) before it replaces the file. A custom template must render every section it needs, because the other C(prometheus_*) variables only take effect through the template. Changes reload the service."
+        type: "str"
         default: "prometheus.yml.j2"
       prometheus_alert_rules:
         description:
-          - "List of alerting rules deployed to rules/ansible_managed.yml."
+          - "Alerting rules, as a list of Prometheus rule dicts (for example C(alert), C(expr), C(for), C(labels), C(annotations)), written to one group in C(rules/ansible_managed.yml) and validated with C(promtool check rules)."
+          - "Not deployed in agent mode. Needs C(prometheus_alert_rules_files) to be non-empty so that C(prometheus.yml) loads the C(rules/) directory. Changes reload the service. A warning is shown when rules are set without C(prometheus_alertmanager_config)."
         type: "list"
         elements: "dict"
         default: []
       prometheus_alert_rules_files:
         description:
-          - "Paths to custom alerting rule files (globs)."
+          - "Glob patterns, resolved on the Ansible controller, of rule files to copy to C(rules/) after validation with C(promtool check rules). Skipped in agent mode."
+          - "C(prometheus.yml) loads C(rules/*.yml) and C(rules/*.yaml) only when this list is not empty, which also applies to C(prometheus_alert_rules). Copied files are not removed when they disappear from the list. Changes reload the service."
         type: "list"
         elements: "str"
         default:
@@ -133,7 +190,8 @@ argument_specs:
           - "prometheus/rules/*.yaml"
       prometheus_static_targets_files:
         description:
-          - "Paths to custom static target files (copied to file_sd/)."
+          - "Glob patterns, resolved on the Ansible controller, of file-based service discovery files to copy to C(file_sd/). Reference them from C(prometheus_scrape_configs)."
+          - "Copied files are not removed when they disappear from the list. Changes reload the service."
         type: "list"
         elements: "str"
         default:
@@ -141,22 +199,29 @@ argument_specs:
           - "prometheus/targets/*.json"
       prometheus_scrape_config_files:
         description:
-          - "Paths to custom scrape config files (v2.43.0+)."
+          - "Glob patterns, resolved on the Ansible controller, of scrape config files to copy to C(scrape_configs/)."
+          - "C(prometheus.yml) includes C(scrape_configs/*) only when this list is not empty and Prometheus is 2.43.0 or later. Copied files are not removed when they disappear from the list. Changes reload the service."
         type: "list"
         elements: "str"
         default:
           - "prometheus/scrape_configs/*.yml"
           - "prometheus/scrape_configs/*.json"
       prometheus_system_group:
-        description: "System group for Prometheus."
+        description:
+          - "System group that owns the configuration and data directories and runs the service. Created if missing."
+          - "Changing it creates the new group and restarts the service. The old group is not removed."
         type: "str"
         default: "prometheus"
       prometheus_system_user:
-        description: "System user for Prometheus."
+        description:
+          - "System user that owns the configuration and data directories and runs the service. Created without a login shell and with C(prometheus_config_dir) as home."
+          - "Changing it creates the new user and restarts the service. The old user is not removed."
         type: "str"
         default: "prometheus"
       prometheus_stop_timeout:
-        description: "How long to wait for Prometheus to shutdown (systemd TimeoutStopSec)."
+        description:
+          - "Time systemd waits for Prometheus to stop before killing it, set as C(TimeoutStopSec). Accepts systemd time spans such as C(600s) or C(10min)."
+          - "Changing it restarts the service."
         type: "str"
         default: "600s"
       prometheus_enable_service:
@@ -168,5 +233,8 @@ argument_specs:
         type: bool
         default: false
       prometheus_local_cache_path:
-        description: "Path to cache the downloaded archive, on the host that downloads it"
+        description:
+          - "Directory where the archive is downloaded and unpacked, and from which binaries (and console files below Prometheus 3.0.0) are copied. Created on the host that downloads: the controller when C(prometheus_download_local) is true, the target otherwise."
+          - "The default includes the version, so each version gets its own directory and an existing download is reused. Old directories are not cleaned up."
+        type: "str"
         default: "/tmp/prometheus-{{ ansible_facts['system'] | lower }}-{{ _prometheus_go_ansible_arch }}/{{ prometheus_version }}"

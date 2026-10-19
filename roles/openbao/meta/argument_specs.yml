@@ -11,75 +11,108 @@ argument_specs:
       openbao_version:
         type: str
         default: "2.7.1"
-        description: Package version to install, for example C(2.7.1).
+        description:
+          - "Package version to install, for example C(2.7.1). It is appended to the package name (C(openbao=VERSION) on APT, C(openbao-VERSION) on DNF/YUM) and must exist in the configured repository."
+          - "Must look like a package version (C(MAJOR.MINOR.PATCH) with an optional suffix); the role fails before changing the host otherwise."
+          - "The role does not restart the service after a package change."
       openbao_manage_repository:
         type: bool
         default: true
-        description: Configure the pkgs.openbao.org repository. Disable when an internal mirror is already configured.
+        description:
+          - "Configure the pkgs.openbao.org repository and its signing key before installing the package. Disable when an internal mirror is already configured."
+          - "When false, O(openbao_gpg_key_url), O(openbao_validate_certs), the C(openbao_apt_repository_*) options and O(openbao_yum_repository_baseurl) are not used."
       openbao_gpg_key_url:
         type: str
         default: "https://openbao.org/assets/openbao-gpg-pub-20240618.asc"
-        description: URL of the package signing key.
+        description:
+          - "URL of the package signing key. On Debian and Ubuntu it is downloaded to C(/etc/apt/keyrings/openbao.asc) and referenced by the APT source; on Red Hat it is imported into the RPM keyring and set as C(gpgkey) of the repository."
+          - "Used only when O(openbao_manage_repository) is true."
       openbao_validate_certs:
         type: bool
         default: true
-        description: Validate TLS certificates when downloading the signing key.
+        description:
+          - "Validate the TLS certificate of the server hosting the signing key when downloading it from O(openbao_gpg_key_url). Disable only for a mirror with a private certificate."
+          - "Does not affect package downloads. Used only when O(openbao_manage_repository) is true."
       openbao_apt_repository_uri:
         type: str
         default: "https://pkgs.openbao.org/deb"
-        description: APT repository URI.
+        description:
+          - "Base URI of the APT repository, written as C(URIs) in C(/etc/apt/sources.list.d/openbao.sources). Debian and Ubuntu only."
+          - "Used only when O(openbao_manage_repository) is true. A change refreshes the APT cache."
       openbao_apt_repository_suite:
         type: str
         default: stable
-        description: APT repository suite.
+        description:
+          - "APT suite, written as C(Suites) in C(/etc/apt/sources.list.d/openbao.sources). Debian and Ubuntu only."
+          - "Used only when O(openbao_manage_repository) is true. A change refreshes the APT cache."
       openbao_apt_repository_components:
         type: str
         default: main
-        description: APT repository components.
+        description:
+          - "APT components, written as C(Components) in C(/etc/apt/sources.list.d/openbao.sources); separate several with spaces. Debian and Ubuntu only."
+          - "Used only when O(openbao_manage_repository) is true. A change refreshes the APT cache."
       openbao_yum_repository_baseurl:
         type: str
         default: "https://pkgs.openbao.org/rpm/$basearch"
-        description: YUM/DNF repository base URL.
+        description:
+          - "Base URL of the C(openbao) YUM/DNF repository, with package signature checking enabled. Red Hat family only."
+          - "C($basearch) is expanded by the package manager. Used only when O(openbao_manage_repository) is true."
       openbao_service_manage:
         type: bool
         default: false
-        description: Manage the C(openbao) server service using the two options below.
+        description:
+          - "Manage the C(openbao) systemd unit using O(openbao_service_enabled) and O(openbao_service_state). When false the role only installs the package and leaves the unit as the package created it (disabled and stopped on a fresh install)."
+          - "Required by O(openbao_init). Also a precondition for the restart that follows a configuration change (see O(openbao_config_manage))."
       openbao_service_enabled:
         type: bool
         default: true
-        description: Enable the C(openbao) server service at boot.
+        description:
+          - "Whether the C(openbao) unit starts at boot. Used only when O(openbao_service_manage) is true."
       openbao_service_state:
         type: str
         default: started
         choices: [started, stopped, restarted]
-        description: State of the C(openbao) server service.
+        description:
+          - "State the C(openbao) unit is set to on every run. C(restarted) restarts the service on each run, so the task always reports a change and the server is briefly unavailable."
+          - "Used only when O(openbao_service_manage) is true. The restart after a configuration change only happens with C(started); O(openbao_init) accepts C(started) and C(restarted)."
       openbao_config_manage:
         type: bool
         default: false
         description:
-          - Render C(/etc/openbao/openbao.hcl) from the options below. When false the packaged configuration is left untouched.
-          - The rendered file is checked with C(bao operator validate-config) before it replaces the current one.
+          - "Render C(/etc/openbao/openbao.hcl) from the server options below (UI, addresses, storage, listeners, telemetry, plugins and extra configuration). When false the packaged configuration is left untouched and those options are ignored."
+          - "The rendered file is checked with C(bao operator validate-config) before it replaces the current one; a file that fails validation is not installed."
+          - "A change to the file restarts the service at the end of the play, only when O(openbao_service_manage) is true, O(openbao_service_state) is C(started) and the service was already running when the role started."
       openbao_ui:
         type: bool
         default: true
-        description: Enable the web UI.
+        description:
+          - "Enable the web UI. Written as C(ui) in the rendered configuration."
+          - "Used only when O(openbao_config_manage) is true. A change restarts the service (see O(openbao_config_manage))."
       openbao_api_addr:
         type: str
         default: ""
-        description: Address advertised to clients. Omitted when empty.
+        description:
+          - "Address clients should use to reach this node, for example C(https://openbao1.example.com:8200). Written as C(api_addr); the line is omitted when empty."
+          - "Used only when O(openbao_config_manage) is true. Must be a string."
       openbao_cluster_addr:
         type: str
         default: ""
-        description: Address advertised to other cluster members. Omitted when empty. Required by raft storage.
+        description:
+          - "Address other cluster members should use to reach this node, for example C(https://openbao1.example.com:8201). Written as C(cluster_addr); the line is omitted when empty. Required by raft storage; the role does not check this."
+          - "Used only when O(openbao_config_manage) is true. Must be a string."
       openbao_storage_type:
         type: str
         default: pebbledb
-        description: Storage backend type.
+        description:
+          - "Storage backend, used as the label of the C(storage) block, for example C(pebbledb) or C(raft). Any non-empty string is accepted; OpenBao decides whether the backend exists when the rendered file is validated."
+          - "Used only when O(openbao_config_manage) is true. Changing it on a host with data does not migrate that data."
       openbao_storage_config:
         type: dict
         default:
           path: /opt/openbao/data
-        description: Options for the storage block.
+        description:
+          - "Options of the C(storage) block. Each key becomes C(key = value) with the value written as JSON; a nested mapping becomes a nested block and a list of mappings becomes repeated blocks."
+          - "Used only when O(openbao_config_manage) is true. Must be a mapping."
       openbao_listeners:
         type: list
         elements: dict
@@ -89,65 +122,88 @@ argument_specs:
             tls_cert_file: /opt/openbao/tls/tls.crt
             tls_key_file: /opt/openbao/tls/tls.key
         description:
-          - Listener blocks. C(type) is C(tcp) (default) or C(unix) and C(address) is required.
-          - Every other key is written as a listener option; nested mappings become nested blocks.
+          - "Listener blocks, each rendered as C(listener \"TYPE\" { ... }). C(type) is C(tcp) (default) or C(unix) and a non-empty string C(address) is required; the list must not be empty."
+          - "Every other key is written as C(key = value) with the value written as JSON; nested mappings become nested blocks."
+          - "Used only when O(openbao_config_manage) is true. Replacing the list replaces the packaged listener, including its TLS settings."
       openbao_telemetry:
         type: dict
         default: {}
-        description: Options for the telemetry block. Omitted when empty.
+        description:
+          - "Options of the C(telemetry) block, for example C({prometheus_retention_time: 24h, disable_hostname: true}). Rendered like O(openbao_storage_config); the block is omitted when empty."
+          - "Used only when O(openbao_config_manage) is true. Must be a mapping."
       openbao_plugins:
         type: list
         elements: dict
         default: []
         description:
-          - Declarative plugins. Each item needs C(type) (C(secret), C(auth) or C(database)), C(name), C(version) and exactly one of C(image) or C(command).
-          - C(image) must be pinned by digest or paired with C(sha256sum).
-          - Optional keys are C(sha256sum), C(binary_name), C(args) and C(env). Requires O(openbao_config_manage).
+          - "Declarative plugins written as C(plugin) blocks. Each item needs C(type) (C(secret), C(auth) or C(database)), C(name), C(version) and exactly one of C(image) (OCI image reference) or C(command) (binary already present in O(openbao_plugin_directory))."
+          - "C(image) must be pinned by digest (C(@sha256:...)) or paired with C(sha256sum), which must be 64 lowercase hex characters. Optional keys are C(sha256sum), C(binary_name), C(args) (list) and C(env) (list of C(KEY=value)); any other key is rejected, as is a repeated C(type) and C(name) pair."
+          - "Requires O(openbao_config_manage). When not empty, the plugin directory is created and the plugin server options are rendered."
       openbao_plugin_directory:
         type: str
         default: /opt/openbao/plugins
-        description: Plugin directory, created for the C(openbao) user when O(openbao_plugins) is not empty.
+        description:
+          - "Absolute path of the plugin directory, written as C(plugin_directory). It is created owned by C(openbao) with mode C(0750)."
+          - "Used, and checked to be absolute, only when O(openbao_plugins) is not empty. Requires O(openbao_config_manage) to be created and rendered."
       openbao_plugin_auto_download:
         type: bool
         default: true
-        description: Download OCI plugins at startup and on reload.
+        description:
+          - "Written as C(plugin_auto_download): whether OpenBao downloads declared OCI plugin images itself at startup and on reload."
+          - "Rendered, and checked to be a boolean, only when O(openbao_plugins) is not empty. Requires O(openbao_config_manage)."
       openbao_plugin_auto_register:
         type: bool
         default: true
-        description: Register declared plugins in the catalog at startup and on reload.
+        description:
+          - "Written as C(plugin_auto_register): whether OpenBao registers declared plugins in its catalog at startup and on reload."
+          - "Rendered, and checked to be a boolean, only when O(openbao_plugins) is not empty. Requires O(openbao_config_manage)."
       openbao_plugin_download_behavior:
         type: str
         default: fail
         choices: [fail, warn]
-        description: Whether a failed plugin download stops the server from starting.
+        description:
+          - "Written as C(plugin_download_behavior): whether a failed plugin download stops the server from starting (C(fail)) or is only logged as a warning (C(warn))."
+          - "Rendered only when O(openbao_plugins) is not empty. Requires O(openbao_config_manage)."
       openbao_extra_config:
         type: str
         default: ""
-        description: Raw HCL appended to the server configuration.
+        description:
+          - "Raw HCL appended unchanged to the end of the rendered configuration, for example a C(seal) stanza. Nothing is added when empty."
+          - "Used only when O(openbao_config_manage) is true. The whole file is checked with C(bao operator validate-config) first, so invalid HCL or an unknown option fails the task and leaves the current file in place."
       openbao_init:
         type: bool
         default: false
         description:
-          - Initialise the cluster with C(bao operator init) on the first host of the play when it is not initialised yet.
-          - Requires O(openbao_service_manage) and a started service.
-          - The unseal keys and root token are written to O(openbao_init_output_file).
+          - "Initialise the cluster with C(bao operator init) on the first host of the play when it reports not initialised; the role waits up to about a minute for the server to answer first. A cluster that is already initialised is left alone."
+          - "Requires O(openbao_service_manage) with O(openbao_service_state) C(started) or C(restarted)."
+          - "The unseal keys and root token are written to O(openbao_init_output_file) on that host. The cluster is left sealed unless auto-unseal is configured, and other nodes must be unsealed separately."
       openbao_init_secret_shares:
         type: int
         default: 5
-        description: Number of unseal key shares to generate.
+        description:
+          - "Number of unseal key shares, passed as C(-key-shares) to C(bao operator init). Must be at least 1."
+          - "Validated on every run, but only used when O(openbao_init) is true. Cannot be changed afterwards: the cluster is initialised only once."
       openbao_init_secret_threshold:
         type: int
         default: 3
-        description: Number of key shares needed to unseal. Must not exceed O(openbao_init_secret_shares).
+        description:
+          - "Number of shares required to unseal, passed as C(-key-threshold). Must be at least 1 and not exceed O(openbao_init_secret_shares)."
+          - "Validated on every run, but only used when O(openbao_init) is true."
       openbao_init_output_file:
         type: str
         default: /root/openbao-init.json
-        description: File on the initialised host that receives the init output, readable by root only.
+        description:
+          - "Absolute path on the initialised host that receives the C(bao operator init) JSON output (unseal keys and root token), owned by root with mode C(0600)."
+          - "Validated on every run, but only written by the run that initialises the cluster. Move its content to a secrets manager and remove the file."
       openbao_init_address:
         type: str
         default: "https://127.0.0.1:8200"
-        description: Server address used by the init commands.
+        description:
+          - "Address of the server, exported as C(BAO_ADDR) to the C(bao operator init) commands run on the host. Must start with C(http://) or C(https://)."
+          - "Validated on every run, but only used when O(openbao_init) is true."
       openbao_init_skip_verify:
         type: bool
         default: true
-        description: Skip TLS verification for the init commands, needed by the packaged self-signed certificate.
+        description:
+          - "Exported as C(BAO_SKIP_VERIFY) to the init commands, which skips TLS verification. Needed by the packaged self-signed certificate; set to false when O(openbao_init_address) serves a trusted certificate."
+          - "Only used when O(openbao_init) is true."

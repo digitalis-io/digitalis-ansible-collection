@@ -1,0 +1,7 @@
+---
+argument_specs:
+  main:
+    options:
+      demo_port:
+        description: Port the service listens on.
+        default: 8080

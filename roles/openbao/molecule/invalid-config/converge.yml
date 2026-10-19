@@ -47,6 +47,36 @@
       - name: an unknown plugin download behaviour
         vars: { download_behavior: ignore, plugins: [{ type: secret, name: aws, version: v0.1.0, command: aws }] }
         expect: "must be one of: fail, warn"
+      - name: a listener list given as a mapping
+        vars: { listeners: { address: "127.0.0.1:8200" } }
+        expect: "argument 'openbao_listeners' is of type"
+      - name: plugins given as a mapping
+        vars: { plugins: { type: secret, name: aws } }
+        expect: "argument 'openbao_plugins' is of type"
+      - name: storage options given as a list
+        vars: { storage_config: [path] }
+        expect: "argument 'openbao_storage_config' is of type"
+      - name: telemetry options given as a string
+        vars: { telemetry: prometheus }
+        expect: "argument 'openbao_telemetry' is of type"
+      - name: extra configuration given as a list
+        vars: { extra_config: [seal] }
+        expect: openbao_extra_config strings
+      - name: a non-boolean config_manage
+        vars: { config_manage: maybe }
+        expect: "argument 'openbao_config_manage' is of type"
+      - name: a non-boolean ui setting
+        vars: { ui: maybe }
+        expect: "argument 'openbao_ui' is of type"
+      - name: a non-boolean service_manage
+        vars: { service_manage: maybe }
+        expect: "argument 'openbao_service_manage' is of type"
+      - name: a non-integer number of init shares
+        vars: { init_shares: five }
+        expect: "argument 'openbao_init_secret_shares' is of type"
+      - name: an unknown service state
+        vars: { service_state: paused, service_manage: true }
+        expect: "must be one of: started, stopped, restarted"
       - name: an init threshold above the number of shares
         vars: { init: true, init_shares: 2, init_threshold: 3 }
         expect: openbao_init needs

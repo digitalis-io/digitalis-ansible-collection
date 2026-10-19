@@ -20,6 +20,7 @@
 {%- elif d.default is mapping and not d.default %}{% set default = '{}' %}
 {%- elif d.default is sequence and d.default is not string and not d.default %}{% set default = '[]' %}
 {%- elif d.default == '' %}{% set default = '""' %}
+{%- elif d.default is mapping or (d.default is sequence and d.default is not string) %}{% set default = d.default | tojson | replace('\\u0027', "'") | replace('\\u003c', '<') | replace('\\u003e', '>') | replace('\\u0026', '&') %}
 {%- else %}{% set default = d.display_default %}
 {%- endif %}
 {%- else %}{% set default = '' %}

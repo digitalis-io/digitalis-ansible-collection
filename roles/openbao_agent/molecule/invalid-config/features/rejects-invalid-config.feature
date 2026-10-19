@@ -26,3 +26,10 @@ Feature: Reject invalid OpenBao Agent configuration
       | two src files with the same name          |
       | a token sink mode that is not octal       |
       | a listener on a non-loopback address      |
+      | an unsupported log level                  |
+      | an unsupported service state              |
+      | a non-boolean TLS verification flag       |
+      | a non-numeric retry count                 |
+      | templates given as a string               |
+      | a template entry that is not a dictionary |
+      | a non-boolean error_on_missing_key        |

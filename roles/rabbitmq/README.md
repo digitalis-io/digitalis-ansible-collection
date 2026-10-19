@@ -186,7 +186,7 @@ Generated from `meta/argument_specs.yml`; run `scripts/generate-docs.sh` to refr
 | `rabbitmq_nodename` | str | no | `rabbit@{{ ansible_hostname }}` | Node name used by `rabbitmqctl` and the community.rabbitmq modules. Override when `ansible_hostname` does not match the running node. |
 | `rabbitmq_use_longname` | bool | no | `false` | Use fully-qualified node names. |
 | `rabbitmq_domain` | str | no |  | Domain appended to cluster member names when `rabbitmq_use_longname` is enabled. Falls back to `internal`. |
-| `rabbitmq_plugins` | list of str | no | `['rabbitmq_management', 'rabbitmq_prometheus']` | Plugins to enable. Must include `rabbitmq_management`, which the queue and virtual host tasks use. |
+| `rabbitmq_plugins` | list of str | no | `["rabbitmq_management", "rabbitmq_prometheus"]` | Plugins to enable. Must include `rabbitmq_management`, which the queue and virtual host tasks use. |
 | `rabbitmq_amqp_port` | int | no | `5672` | AMQP port. |
 | `rabbitmq_amqp_ssl_port` | int | no | `5671` | AMQP TLS port, used when `rabbitmq_ssl` is set. |
 | `rabbitmq_management_port` | int | no | `15672` | Management UI and API port. |
@@ -208,10 +208,10 @@ Generated from `meta/argument_specs.yml`; run `scripts/generate-docs.sh` to refr
 | `rabbitmq_apt_arch` | str | no | `{{ ansible_architecture \| replace('x86_64', 'amd64') \| replace('aarch64', 'arm64') }}` | APT architecture (Debian and Ubuntu only). |
 | `rabbitmq_apt_key_url` | str | no | `https://keys.openpgp.org/vks/v1/by-fingerprint/0A9AF2115F4687BD29803A206B73A36E6026DFCA` | URL of the RabbitMQ team OpenPGP key (Debian and Ubuntu only). |
 | `rabbitmq_apt_key_path` | path | no | `/usr/share/keyrings/com.rabbitmq.team.gpg` | Path the signing key is written to (Debian and Ubuntu only). |
-| `rabbitmq_apt_repos` | list of dict | no |  | APT repositories to configure (Debian and Ubuntu only). Defaults to the RabbitMQ Erlang and server mirrors, see `defaults/main.yml`. |
-| `rabbitmq_erlang_version_map` | dict | no |  | Maps the distribution codename to the pinned Erlang package version (Debian and Ubuntu only). See `defaults/main.yml` for the shipped map. |
+| `rabbitmq_apt_repos` | list of dict | no | `[{"type": "erlang", "url": "https://deb1.rabbitmq.com/rabbitmq-erlang"}, {"type": "erlang", "url": "https://deb2.rabbitmq.com/rabbitmq-erlang"}, {"type": "server", "url": "https://deb1.rabbitmq.com/rabbitmq-server"}, {"type": "server", "url": "https://deb2.rabbitmq.com/rabbitmq-server"}]` | APT repositories to configure (Debian and Ubuntu only). Defaults to the RabbitMQ Erlang and server mirrors, see `defaults/main.yml`. |
+| `rabbitmq_erlang_version_map` | dict | no | `{"bookworm": "1:27.3.4.9-1", "jammy": "1:27.3.4.9-1", "noble": "1:27.3.4.9-1", "resolute": "1:27.3.4.6+dfsg-1ubuntu0.2", "trixie": "1:27.3.4.9-1"}` | Maps the distribution codename to the pinned Erlang package version (Debian and Ubuntu only). See `defaults/main.yml` for the shipped map. |
 | `rabbitmq_erlang_version` | str | no | `{{ rabbitmq_erlang_version_map.get(ansible_distribution_release, '1:27.2-1') }}` | Erlang package version to install (Debian and Ubuntu only). |
-| `rabbitmq_erlang_packages` | list of str | no |  | Erlang packages to install (Debian and Ubuntu only). Defaults to the 17 `erlang-*` packages RabbitMQ requires, pinned to `rabbitmq_erlang_version`. |
+| `rabbitmq_erlang_packages` | list of str | no | `["erlang-asn1={{ rabbitmq_erlang_version }}", "erlang-base={{ rabbitmq_erlang_version }}", "erlang-crypto={{ rabbitmq_erlang_version }}", "erlang-eldap={{ rabbitmq_erlang_version }}", "erlang-ftp={{ rabbitmq_erlang_version }}", "erlang-inets={{ rabbitmq_erlang_version }}", "erlang-mnesia={{ rabbitmq_erlang_version }}", "erlang-os-mon={{ rabbitmq_erlang_version }}", "erlang-parsetools={{ rabbitmq_erlang_version }}", "erlang-public-key={{ rabbitmq_erlang_version }}", "erlang-runtime-tools={{ rabbitmq_erlang_version }}", "erlang-snmp={{ rabbitmq_erlang_version }}", "erlang-ssl={{ rabbitmq_erlang_version }}", "erlang-syntax-tools={{ rabbitmq_erlang_version }}", "erlang-tftp={{ rabbitmq_erlang_version }}", "erlang-tools={{ rabbitmq_erlang_version }}", "erlang-xmerl={{ rabbitmq_erlang_version }}"]` | Erlang packages to install (Debian and Ubuntu only). Defaults to the 17 `erlang-*` packages RabbitMQ requires, pinned to `rabbitmq_erlang_version`. |
 | `rabbitmq_erlang_cookie` | str | no | `""` | Shared secret for cluster node authentication. Required for clusters and not written when empty. |
 | `rabbitmq_cluster_members` | list of str | no | `[]` | Cluster node names, for example `node1`. Empty creates a standalone node. |
 | `rabbitmq_cluster_name` | str | no |  | Cluster name, for example `rabbit.example.com`. |
@@ -219,7 +219,7 @@ Generated from `meta/argument_specs.yml`; run `scripts/generate-docs.sh` to refr
 | `rabbitmq_cluster_partition_handling` | str | no |  | Network partition handling strategy. Falls back to `pause_minority`. One of `pause_minority`, `pause_if_all_down`, `autoheal`, `ignore`. |
 | `rabbitmq_cluster_partition_handling_pause_if_all_down` | str | no |  | Recovery strategy used when `rabbitmq_cluster_partition_handling` is `pause_if_all_down`. Falls back to `autoheal`. |
 | `rabbitmq_ssl` | dict | no |  | TLS configuration. When defined, TLS is enabled and the plain-text AMQP listener is disabled. |
-| `rabbitmq_ssl_ciphers` | list of str | no |  | Allowed TLS cipher suites. Defaults to twelve AES-GCM suites, see `defaults/main.yml`. |
+| `rabbitmq_ssl_ciphers` | list of str | no | `["ECDHE-ECDSA-AES256-GCM-SHA384", "ECDHE-RSA-AES256-GCM-SHA384", "ECDH-ECDSA-AES256-GCM-SHA384", "ECDH-RSA-AES256-GCM-SHA384", "DHE-RSA-AES256-GCM-SHA384", "DHE-DSS-AES256-GCM-SHA384", "ECDHE-ECDSA-AES128-GCM-SHA256", "ECDHE-RSA-AES128-GCM-SHA256", "ECDH-ECDSA-AES128-GCM-SHA256", "ECDH-RSA-AES128-GCM-SHA256", "DHE-RSA-AES128-GCM-SHA256", "DHE-DSS-AES128-GCM-SHA256"]` | Allowed TLS cipher suites. Defaults to twelve AES-GCM suites, see `defaults/main.yml`. |
 | `rabbitmq_oauth2_issuer` | str | no |  | OIDC issuer URL. Setting it enables the OAuth2 backend and requires `rabbitmq_oauth2_client_id` and `rabbitmq_oauth2_client_secret`. |
 | `rabbitmq_oauth2_client_id` | str | no |  | OAuth2 client ID. |
 | `rabbitmq_oauth2_client_secret` | str | no |  | OAuth2 client secret. |
@@ -232,10 +232,10 @@ Generated from `meta/argument_specs.yml`; run `scripts/generate-docs.sh` to refr
 | `rabbitmq_erl_ssl_path` | str | no | `/usr/lib/erlang/lib/ssl-11.2.6/ebin` | Fallback Erlang SSL library path written to `rabbitmq-env.conf` when TLS is enabled and the path cannot be detected. |
 | `rabbitmq_admin_user` | str | no | `admin` | Name of the administrator account created by the role. |
 | `rabbitmq_admin_password` | str | no | `""` | Password of the administrator account. Required, the role fails when empty. |
-| `rabbitmq_admin_permissions` | list of dict | no | `[{'vhost': '/', 'configure_priv': '.*', 'read_priv': '.*', 'write_priv': '.*'}]` | Permissions granted to the administrator account. |
-| `rabbitmq_users` | list of dict | no | `[{'name': 'guest', 'state': 'absent'}]` | Users to manage. The default removes the built-in `guest` account. |
+| `rabbitmq_admin_permissions` | list of dict | no | `[{"configure_priv": ".*", "read_priv": ".*", "vhost": "/", "write_priv": ".*"}]` | Permissions granted to the administrator account. |
+| `rabbitmq_users` | list of dict | no | `[{"name": "guest", "state": "absent"}]` | Users to manage. The default removes the built-in `guest` account. |
 | `rabbitmq_vhosts` | list of dict | no | `[]` | Virtual hosts to manage. |
-| `rabbitmq_queue_defaults` | dict | no | `{"x-queue-type": "quorum", "x-delivery-limit": 20, "x-quorum-initial-group-size": 3}` | Arguments merged into every queue in `rabbitmq_queues`. |
+| `rabbitmq_queue_defaults` | dict | no | `{"x-delivery-limit": 20, "x-queue-type": "quorum", "x-quorum-initial-group-size": 3}` | Arguments merged into every queue in `rabbitmq_queues`. |
 | `rabbitmq_queues` | list of dict | no | `[]` | Queues to manage. Requires the management plugin. |
 | `rabbitmq_use_haproxy` | bool | no | `false` | Install and configure HAProxy in front of RabbitMQ. |
 | `rabbitmq_haproxy_amqp_port` | int | no | `5670` | HAProxy frontend port for AMQP. |
@@ -246,8 +246,8 @@ Generated from `meta/argument_specs.yml`; run `scripts/generate-docs.sh` to refr
 | `rabbitmq_haproxy_stats_address` | str | no | `127.0.0.1` | Address the HAProxy statistics page binds to. |
 | `rabbitmq_haproxy_log_address` | str | no | `127.0.0.1` | Address HAProxy sends logs to. |
 | `rabbitmq_haproxy_group` | str | no | `rabbitmq` | Inventory group whose hosts become HAProxy backends. |
-| `rabbitmq_backup_cronjob` | dict | no | `{'enabled': False, 'schedule': '0 0 * * *', 'directory': '/var/backups/rabbitmq', 'retention_days': 7}` | Scheduled export of the cluster definitions with `rabbitmqadmin`. When overriding, set every key, because the defaults below apply only to the whole dict. |
-| `rabbitmq_sysctl` | dict | no | `{"fs.file-max": 200000, "net.core.rmem_max": 16777216, "net.core.wmem_max": 16777216, "net.core.somaxconn": 4096, "net.ipv4.tcp_keepalive_time": 60, "net.ipv4.tcp_keepalive_intvl": 10, "net.ipv4.tcp_keepalive_probes": 3, "net.ipv4.ip_local_port_range": "1024 65535"}` | Kernel parameters applied with `ansible.posix.sysctl`. Skipped on Docker hosts. |
+| `rabbitmq_backup_cronjob` | dict | no | `{"directory": "/var/backups/rabbitmq", "enabled": false, "retention_days": 7, "schedule": "0 0 * * *"}` | Scheduled export of the cluster definitions with `rabbitmqadmin`. When overriding, set every key, because the defaults below apply only to the whole dict. |
+| `rabbitmq_sysctl` | dict | no | `{"fs.file-max": 200000, "net.core.rmem_max": 16777216, "net.core.somaxconn": 4096, "net.core.wmem_max": 16777216, "net.ipv4.ip_local_port_range": "1024 65535", "net.ipv4.tcp_keepalive_intvl": 10, "net.ipv4.tcp_keepalive_probes": 3, "net.ipv4.tcp_keepalive_time": 60}` | Kernel parameters applied with `ansible.posix.sysctl`. Skipped on Docker hosts. |
 
 ### `rabbitmq_apt_repos` options
 

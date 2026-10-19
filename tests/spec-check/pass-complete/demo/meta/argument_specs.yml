@@ -1,0 +1,15 @@
+---
+argument_specs:
+  main:
+    options:
+      demo_port:
+        type: int
+        description: Port the service listens on.
+        default: 8080
+      demo_name:
+        type: str
+        description: Service name.
+        default: web
+      demo_token:
+        type: str
+        description: Optional token, unset by default.

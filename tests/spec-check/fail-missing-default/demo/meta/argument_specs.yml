@@ -1,0 +1,7 @@
+---
+argument_specs:
+  main:
+    options:
+      demo_port:
+        type: int
+        description: Port the service listens on.
