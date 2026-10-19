@@ -123,7 +123,51 @@ argument_specs:
         type: list
         elements: dict
         default: []
-        description: Templates to render. See the README for the item keys.
+        description: Templates to render. Each item needs C(destination) and exactly one of C(contents), C(src) or C(source).
+        options:
+          destination:
+            type: path
+            required: true
+            description: Absolute path of the rendered file.
+          contents:
+            type: str
+            description: Inline template, tagged C(!unsafe) so Ansible leaves the C({{ }}) markers for the agent.
+          src:
+            type: path
+            description: Controller file copied to C(<config_dir>/templates/).
+          source:
+            type: path
+            description: Template file already on the host.
+          perms:
+            type: str
+            description: File mode. Falls back to C(openbao_agent_template_default_perms).
+          error_on_missing_key:
+            type: bool
+            description: Fail rendering on missing keys.
+          backup:
+            type: bool
+            description: Keep the previous render.
+          create_dest_dirs:
+            type: bool
+            description: Let the agent create parent directories.
+          left_delimiter:
+            type: str
+            description: Left template delimiter.
+          right_delimiter:
+            type: str
+            description: Right template delimiter.
+          wait_min:
+            type: str
+            description: Minimum render quiescence timer, for example C(5s).
+          wait_max:
+            type: str
+            description: Maximum render quiescence timer, for example C(10s).
+          exec_command:
+            type: raw
+            description: Command run after a changed render, as a string or a list of arguments.
+          exec_timeout:
+            type: str
+            description: Command timeout. Requires C(exec_command). Falls back to C(30s).
       openbao_agent_extra_config:
         type: str
         default: ""

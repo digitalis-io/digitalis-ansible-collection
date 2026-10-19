@@ -71,58 +71,65 @@ openbao_agent_listener_address: 127.0.0.1:8100
 
 ## Variables
 
-| Variable | Type | Default | Example |
-|----------|------|---------|---------|
-| `openbao_agent_address` | str | `""` (required) | `https://openbao.example.com:8200` |
-| `openbao_agent_auth_method` | str | `approle` | `token_file` |
-| `openbao_agent_auth_mount_path` | str | `auth/approle` | `auth/approle-apps` (approle only) |
-| `openbao_agent_approle_role_id` | str | `""` | vaulted value |
-| `openbao_agent_approle_secret_id` | str | `""` | vaulted value |
-| `openbao_agent_token` | str | `""` | vaulted value |
-| `openbao_agent_templates` | list | `[]` | see below |
-| `openbao_agent_template_exit_on_retry_failure` | bool | `true` | `false` |
-| `openbao_agent_template_static_secret_render_interval` | str | `5m` | `1h` |
-| `openbao_agent_ca_cert` | str | `""` | `/etc/pki/tls/certs/openbao-ca.pem` |
-| `openbao_agent_tls_server_name` | str | `""` | `openbao.example.com` |
-| `openbao_agent_tls_skip_verify` | bool | `false` | `true` |
-| `openbao_agent_retry_num_retries` | int | `12` | `5` |
-| `openbao_agent_log_level` | str | `info` | `debug` |
-| `openbao_agent_token_sink_enabled` | bool | `true` | `false` |
-| `openbao_agent_token_sink_path` | path | `<data_dir>/agent-token` | `/var/lib/myapp/token` |
-| `openbao_agent_token_sink_mode` | str | `0640` | `0600` |
-| `openbao_agent_listener_address` | str | `""` | `127.0.0.1:8100` |
-| `openbao_agent_listener_allow_nonlocal` | bool | `false` | `true` |
-| `openbao_agent_template_default_perms` | str | `0600` | `0640` |
-| `openbao_agent_extra_config` | str | `""` | raw HCL |
-| `openbao_agent_install` | bool | `true` | `false` |
-| `openbao_agent_user` | str | `openbao-agent` | `myapp` |
-| `openbao_agent_group` | str | `openbao-agent` | `myapp` |
-| `openbao_agent_config_dir` | path | `/etc/openbao-agent` | `/etc/bao-agent` |
-| `openbao_agent_data_dir` | path | `/var/lib/openbao-agent` | `/srv/bao-agent` |
-| `openbao_agent_service_name` | str | `openbao-agent` | `bao-agent` |
-| `openbao_agent_service_enabled` | bool | `true` | `false` |
-| `openbao_agent_service_state` | str | `started` | `stopped` |
+Generated from `meta/argument_specs.yml`; run `scripts/generate-docs.sh` to refresh.
+
+<!-- BEGIN_ANSIBLE_DOCS -->
+
+| Variable | Type | Required | Default | Description |
+|----------|------|----------|---------|-------------|
+| `openbao_agent_install` | bool | no | `true` | Install the OpenBao package with the openbao role. |
+| `openbao_agent_user` | str | no | `openbao-agent` | User the agent runs as. |
+| `openbao_agent_group` | str | no | `openbao-agent` | Group the agent runs as. |
+| `openbao_agent_config_dir` | path | no | `/etc/openbao-agent` | Directory for the agent configuration, credentials and copied templates. |
+| `openbao_agent_data_dir` | path | no | `/var/lib/openbao-agent` | Agent working directory for the PID file and token sink. |
+| `openbao_agent_service_name` | str | no | `openbao-agent` | Name of the systemd unit. |
+| `openbao_agent_service_enabled` | bool | no | `true` | Enable the agent service at boot. |
+| `openbao_agent_service_state` | str | no | `started` | State of the agent service. One of `started`, `stopped`, `restarted`. |
+| `openbao_agent_address` | str | no | `""` | URL of the OpenBao server. Required. |
+| `openbao_agent_ca_cert` | str | no | `""` | Path on the host to a CA bundle used to verify the server. |
+| `openbao_agent_tls_server_name` | str | no | `""` | SNI host name used when connecting to the server. |
+| `openbao_agent_tls_skip_verify` | bool | no | `false` | Disable TLS verification. Do not use in production. |
+| `openbao_agent_retry_num_retries` | int | no | `12` | Number of retries for failed requests to the server. |
+| `openbao_agent_log_level` | str | no | `info` | Agent log level. One of `trace`, `debug`, `info`, `warn`, `error`. |
+| `openbao_agent_auth_method` | str | no | `approle` | Auto-auth method. One of `approle`, `token_file`. |
+| `openbao_agent_auth_mount_path` | str | no |  | Mount path of the auth method. Defaults to `auth/approle` or `auth/token`. |
+| `openbao_agent_approle_role_id` | str | no | `""` | AppRole role ID. Required for the approle method. |
+| `openbao_agent_approle_secret_id` | str | no | `""` | AppRole secret ID. Required for the approle method. |
+| `openbao_agent_token` | str | no | `""` | Token for the token_file method. |
+| `openbao_agent_token_sink_enabled` | bool | no | `true` | Write the auto-auth token to a file sink. |
+| `openbao_agent_token_sink_path` | path | no |  | Token sink path. Defaults to `<data_dir>/agent-token`. |
+| `openbao_agent_token_sink_mode` | str | no | `0640` | Octal file mode of the token sink. |
+| `openbao_agent_listener_address` | str | no | `""` | Address for a local API proxy listener, for example `127.0.0.1:8100`. Empty disables it. |
+| `openbao_agent_listener_allow_nonlocal` | bool | no | `false` | Allow a non-loopback listener address. The listener has no TLS and uses the agent token. |
+| `openbao_agent_template_default_perms` | str | no | `0600` | Mode for rendered files when a template item does not set perms. |
+| `openbao_agent_template_exit_on_retry_failure` | bool | no | `true` | Exit the agent when template rendering exhausts its retries. |
+| `openbao_agent_template_static_secret_render_interval` | str | no | `5m` | How often non-leased secrets are re-rendered. |
+| `openbao_agent_templates` | list of dict | no | `[]` | Templates to render. Each item needs `destination` and exactly one of `contents`, `src` or `source`. |
+| `openbao_agent_extra_config` | str | no | `""` | Raw HCL appended to the agent configuration. |
+
+### `openbao_agent_templates` options
+
+| Variable | Type | Required | Default | Description |
+|----------|------|----------|---------|-------------|
+| `destination` | path | yes |  | Absolute path of the rendered file. |
+| `contents` | str | no |  | Inline template, tagged `!unsafe` so Ansible leaves the `{{ }}` markers for the agent. |
+| `src` | path | no |  | Controller file copied to `<config_dir>/templates/`. |
+| `source` | path | no |  | Template file already on the host. |
+| `perms` | str | no |  | File mode. Falls back to `openbao_agent_template_default_perms`. |
+| `error_on_missing_key` | bool | no |  | Fail rendering on missing keys. |
+| `backup` | bool | no |  | Keep the previous render. |
+| `create_dest_dirs` | bool | no |  | Let the agent create parent directories. |
+| `left_delimiter` | str | no |  | Left template delimiter. |
+| `right_delimiter` | str | no |  | Right template delimiter. |
+| `wait_min` | str | no |  | Minimum render quiescence timer, for example `5s`. |
+| `wait_max` | str | no |  | Maximum render quiescence timer, for example `10s`. |
+| `exec_command` | raw | no |  | Command run after a changed render, as a string or a list of arguments. |
+| `exec_timeout` | str | no |  | Command timeout. Requires `exec_command`. Falls back to `30s`. |
+<!-- END_ANSIBLE_DOCS -->
 
 With `openbao_agent_install: true` the [openbao](../openbao/README.md) role
 installs the package, so `openbao_version` and its repository variables apply.
 That role never touches the `openbao` server service when called from here.
-
-### Template items
-
-| Key | Type | Required | Description |
-|-----|------|----------|-------------|
-| `destination` | str | yes | Absolute path of the rendered file |
-| `contents` | str | one of | Inline template, tagged `!unsafe` |
-| `src` | str | one of | Controller file copied to `<config_dir>/templates/` |
-| `source` | str | one of | Template file already on the host |
-| `perms` | str | no | File mode, default `openbao_agent_template_default_perms` (`0600`) |
-| `error_on_missing_key` | bool | no | Fail rendering on missing keys |
-| `backup` | bool | no | Keep the previous render |
-| `create_dest_dirs` | bool | no | Let the agent create parent directories |
-| `left_delimiter`, `right_delimiter` | str | no | Template delimiters |
-| `wait_min`, `wait_max` | str | no | Render quiescence timers |
-| `exec_command` | list | no | Command run after a changed render |
-| `exec_timeout` | str | no | Command timeout, default `30s`; requires `exec_command` |
 
 Missing destination directories are created for the agent user. Existing
 directories are not changed, so the agent user must be able to write to them.
@@ -133,6 +140,8 @@ unit uses `ProtectSystem=strict` and grants write access only to the data
 directory, the token sink directory and the template destination
 directories. A token sink outside the data directory must be in a directory
 that already exists and is writable by the agent user.
+
+See also the complete playbook in [examples/openbao-agent-secret](../../examples/openbao-agent-secret/playbook.yml).
 
 ## Supported platforms
 

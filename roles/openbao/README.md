@@ -87,39 +87,44 @@ unsealed:
 
 ## Variables
 
-| Variable | Type | Default | Example |
-|----------|------|---------|---------|
-| `openbao_version` | str | `2.7.1` | `2.6.4` |
-| `openbao_manage_repository` | bool | `true` | `false` |
-| `openbao_gpg_key_url` | str | `https://openbao.org/assets/openbao-gpg-pub-20240618.asc` | mirror URL |
-| `openbao_validate_certs` | bool | `true` | `false` |
-| `openbao_apt_repository_uri` | str | `https://pkgs.openbao.org/deb` | mirror URL |
-| `openbao_apt_repository_suite` | str | `stable` | `stable` |
-| `openbao_apt_repository_components` | str | `main` | `main` |
-| `openbao_yum_repository_baseurl` | str | `https://pkgs.openbao.org/rpm/$basearch` | mirror URL |
-| `openbao_service_manage` | bool | `false` | `true` |
-| `openbao_service_enabled` | bool | `true` | `false` |
-| `openbao_service_state` | str | `started` | `stopped` |
-| `openbao_config_manage` | bool | `false` | `true` |
-| `openbao_ui` | bool | `true` | `false` |
-| `openbao_api_addr` | str | `""` | `https://openbao1.example.com:8200` |
-| `openbao_cluster_addr` | str | `""` | `https://openbao1.example.com:8201` |
-| `openbao_storage_type` | str | `pebbledb` | `raft` |
-| `openbao_storage_config` | dict | `{path: /opt/openbao/data}` | `{path: /opt/openbao/data, node_id: node1}` |
-| `openbao_listeners` | list | TLS listener on `0.0.0.0:8200` with the packaged certificate | `[{address: "127.0.0.1:8200", tls_disable: true}]` |
-| `openbao_telemetry` | dict | `{}` | `{prometheus_retention_time: 24h}` |
-| `openbao_plugins` | list | `[]` | see the example above |
-| `openbao_plugin_directory` | str | `/opt/openbao/plugins` | `/opt/openbao/oci-plugins` |
-| `openbao_plugin_auto_download` | bool | `true` | `false` |
-| `openbao_plugin_auto_register` | bool | `true` | `false` |
-| `openbao_plugin_download_behavior` | str | `fail` | `warn` |
-| `openbao_extra_config` | str | `""` | `seal "transit" { ... }` |
-| `openbao_init` | bool | `false` | `true` |
-| `openbao_init_secret_shares` | int | `5` | `3` |
-| `openbao_init_secret_threshold` | int | `3` | `2` |
-| `openbao_init_output_file` | str | `/root/openbao-init.json` | `/root/bao-init.json` |
-| `openbao_init_address` | str | `https://127.0.0.1:8200` | `http://127.0.0.1:8200` |
-| `openbao_init_skip_verify` | bool | `true` | `false` |
+Generated from `meta/argument_specs.yml`; run `scripts/generate-docs.sh` to refresh.
+
+<!-- BEGIN_ANSIBLE_DOCS -->
+
+| Variable | Type | Required | Default | Description |
+|----------|------|----------|---------|-------------|
+| `openbao_version` | str | no | `2.7.1` | Package version to install, for example `2.7.1`. |
+| `openbao_manage_repository` | bool | no | `true` | Configure the pkgs.openbao.org repository. Disable when an internal mirror is already configured. |
+| `openbao_gpg_key_url` | str | no | `https://openbao.org/assets/openbao-gpg-pub-20240618.asc` | URL of the package signing key. |
+| `openbao_validate_certs` | bool | no | `true` | Validate TLS certificates when downloading the signing key. |
+| `openbao_apt_repository_uri` | str | no | `https://pkgs.openbao.org/deb` | APT repository URI. |
+| `openbao_apt_repository_suite` | str | no | `stable` | APT repository suite. |
+| `openbao_apt_repository_components` | str | no | `main` | APT repository components. |
+| `openbao_yum_repository_baseurl` | str | no | `https://pkgs.openbao.org/rpm/$basearch` | YUM/DNF repository base URL. |
+| `openbao_service_manage` | bool | no | `false` | Manage the `openbao` server service using the two options below. |
+| `openbao_service_enabled` | bool | no | `true` | Enable the `openbao` server service at boot. |
+| `openbao_service_state` | str | no | `started` | State of the `openbao` server service. One of `started`, `stopped`, `restarted`. |
+| `openbao_config_manage` | bool | no | `false` | Render `/etc/openbao/openbao.hcl` from the options below. When false the packaged configuration is left untouched. The rendered file is checked with `bao operator validate-config` before it replaces the current one. |
+| `openbao_ui` | bool | no | `true` | Enable the web UI. |
+| `openbao_api_addr` | str | no | `""` | Address advertised to clients. Omitted when empty. |
+| `openbao_cluster_addr` | str | no | `""` | Address advertised to other cluster members. Omitted when empty. Required by raft storage. |
+| `openbao_storage_type` | str | no | `pebbledb` | Storage backend type. |
+| `openbao_storage_config` | dict | no | `{"path": "/opt/openbao/data"}` | Options for the storage block. |
+| `openbao_listeners` | list of dict | no | `[{'type': 'tcp', 'address': '0.0.0.0:8200', 'tls_cert_file': '/opt/openbao/tls/tls.crt', 'tls_key_file': '/opt/openbao/tls/tls.key'}]` | Listener blocks. `type` is `tcp` (default) or `unix` and `address` is required. Every other key is written as a listener option; nested mappings become nested blocks. |
+| `openbao_telemetry` | dict | no | `{}` | Options for the telemetry block. Omitted when empty. |
+| `openbao_plugins` | list of dict | no | `[]` | Declarative plugins. Each item needs `type` (`secret`, `auth` or `database`), `name`, `version` and exactly one of `image` or `command`. `image` must be pinned by digest or paired with `sha256sum`. Optional keys are `sha256sum`, `binary_name`, `args` and `env`. Requires `openbao_config_manage`. |
+| `openbao_plugin_directory` | str | no | `/opt/openbao/plugins` | Plugin directory, created for the `openbao` user when `openbao_plugins` is not empty. |
+| `openbao_plugin_auto_download` | bool | no | `true` | Download OCI plugins at startup and on reload. |
+| `openbao_plugin_auto_register` | bool | no | `true` | Register declared plugins in the catalog at startup and on reload. |
+| `openbao_plugin_download_behavior` | str | no | `fail` | Whether a failed plugin download stops the server from starting. One of `fail`, `warn`. |
+| `openbao_extra_config` | str | no | `""` | Raw HCL appended to the server configuration. |
+| `openbao_init` | bool | no | `false` | Initialise the cluster with `bao operator init` on the first host of the play when it is not initialised yet. Requires `openbao_service_manage` and a started service. The unseal keys and root token are written to `openbao_init_output_file`. |
+| `openbao_init_secret_shares` | int | no | `5` | Number of unseal key shares to generate. |
+| `openbao_init_secret_threshold` | int | no | `3` | Number of key shares needed to unseal. Must not exceed `openbao_init_secret_shares`. |
+| `openbao_init_output_file` | str | no | `/root/openbao-init.json` | File on the initialised host that receives the init output, readable by root only. |
+| `openbao_init_address` | str | no | `https://127.0.0.1:8200` | Server address used by the init commands. |
+| `openbao_init_skip_verify` | bool | no | `true` | Skip TLS verification for the init commands, needed by the packaged self-signed certificate. |
+<!-- END_ANSIBLE_DOCS -->
 
 `openbao_version` must be a full package version such as `2.7.1`; anything
 else fails before the host is changed.
@@ -162,6 +167,8 @@ listener has `tls_disable`.
     openbao_service_manage: true
     openbao_init: true
 ```
+
+See also the complete playbook in [examples/openbao-agent-secret](../../examples/openbao-agent-secret/playbook.yml).
 
 ## Supported platforms
 

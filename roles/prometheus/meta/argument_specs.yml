@@ -48,7 +48,7 @@ argument_specs:
         default: "30d"
       prometheus_storage_retention_size:
         description:
-          - "Data retention period by size"
+          - "Data retention size limit."
           - "Maximum number of bytes that can be stored for blocks."
           - "Units supported: KB, MB, GB, TB, PB."
         default: "0"
@@ -60,19 +60,22 @@ argument_specs:
         default: false
       prometheus_config_flags_extra:
         description:
-          - "Additional configuration flags passed to prometheus binary at startup"
+          - "Additional configuration flags passed to prometheus binary at startup."
           - "Example: prometheus_config_flags_extra: { alertmanager.timeout: 10s }"
         type: "dict"
+        default: {}
       prometheus_alertmanager_config:
         description:
-          - "Alertmanager configuration as a list in YAML format."
+          - "Alertmanager configuration entries written to the C(alerting.alertmanagers) section, for example C(static_configs)."
         type: "list"
-        elements: "str"
+        elements: "dict"
+        default: []
       prometheus_alert_relabel_configs:
         description:
           - "Alert relabeling rules as a list in YAML format."
         type: "list"
-        elements: "str"
+        elements: "dict"
+        default: []
       prometheus_global:
         description:
           - "Prometheus global config."
@@ -83,14 +86,16 @@ argument_specs:
           evaluation_interval: "15s"
       prometheus_remote_write:
         description:
-          - "Remote write configuration."
+          - "Remote write endpoints. Each item needs C(url); see the Prometheus C(remote_write) configuration for the other keys."
         type: "list"
-        elements: "str"
+        elements: "dict"
+        default: []
       prometheus_remote_read:
         description:
-          - "Remote read configuration."
+          - "Remote read endpoints. Each item needs C(url); see the Prometheus C(remote_read) configuration for the other keys."
         type: "list"
-        elements: "str"
+        elements: "dict"
+        default: []
       prometheus_external_labels:
         description: "Additional labels added to all time series and alerts when communicating with external systems"
         type: "dict"
@@ -153,6 +158,10 @@ argument_specs:
         description: "Whether to start and enable the Prometheus service. Set to false for image builds."
         type: bool
         default: true
+      prometheus_download_local:
+        description: "Download and verify the archive on the Ansible controller and copy it to the target (C(true), for targets without internet access), or download it on the target (C(false))"
+        type: bool
+        default: false
       prometheus_local_cache_path:
-        description: "Local path to cache the downloaded archive"
+        description: "Path to cache the downloaded archive, on the host that downloads it"
         default: "/tmp/prometheus-{{ ansible_facts['system'] | lower }}-{{ _prometheus_go_ansible_arch }}/{{ prometheus_version }}"

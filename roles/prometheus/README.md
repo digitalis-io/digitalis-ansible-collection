@@ -24,7 +24,7 @@ Based on the [prometheus-community/ansible](https://github.com/prometheus-commun
   - Ubuntu 22.04, 24.04
   - Debian 12, 13
 - Target must have systemd-based init system
-- Controller must have internet access to download the Prometheus release from GitHub
+- The target downloads the release from GitHub by default. Set `prometheus_download_local: true` when the target has no internet access; the controller then downloads and copies it (see [examples/prometheus-offline](../../examples/prometheus-offline/playbook.yml))
 
 ## Quick Start
 
@@ -45,96 +45,47 @@ ansible-playbook -i inventory site.yml
 
 ## Role Variables
 
-All variables are defined in `defaults/main.yml` with sensible defaults. Full argument specs are in `meta/argument_specs.yml`.
+Generated from `meta/argument_specs.yml`; run `scripts/generate-docs.sh` to refresh.
 
-### Installation
+<!-- BEGIN_ANSIBLE_DOCS -->
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `prometheus_version` | `3.4.1` | Prometheus release version. Set to `latest` for auto-discovery |
-| `prometheus_binary_url` | *(auto-generated)* | Override for mirrors or air-gapped installs |
-| `prometheus_checksums_url` | *(auto-generated)* | SHA256 checksums URL. Set to `""` to skip verification |
-| `prometheus_system_user` | `prometheus` | System user to run Prometheus |
-| `prometheus_system_group` | `prometheus` | System group for Prometheus |
-| `prometheus_db_dir` | `/var/lib/prometheus` | Data directory |
-| `prometheus_config_dir` | `/etc/prometheus` | Configuration directory |
-| `prometheus_binary_install_dir` | `/usr/local/bin` | Directory for binaries |
-| `prometheus_download_local` | `false` | Download and verify the archive on the target host. Set to `true` to download on the Ansible controller and copy it over (targets without internet access) |
-| `prometheus_local_cache_path` | `/tmp/prometheus-...` | Cache directory for the downloaded archive, on the host that downloads it |
-
-### Network
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `prometheus_web_listen_address` | `0.0.0.0:9090` | Address and port to listen on |
-| `prometheus_web_external_url` | `""` | External URL for link generation (e.g., behind reverse proxy) |
-| `prometheus_metrics_path` | `/metrics` | Metrics endpoint path |
-
-### Web Config (TLS & Auth)
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `prometheus_web_config` | `{tls_server_config: {}, http_server_config: {}, basic_auth_users: {}}` | [Web configuration](https://github.com/prometheus/exporter-toolkit/blob/master/docs/web-configuration.md) for TLS and basic auth |
-
-### Storage
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `prometheus_storage_retention` | `30d` | How long to keep data |
-| `prometheus_storage_retention_size` | `0` | Maximum size of data (e.g., `50GB`) |
-
-### Agent Mode
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `prometheus_agent_mode` | `false` | Enable [agent mode](https://prometheus.io/blog/2021/11/16/agent/) (disables querying/alerting, optimises for remote write) |
-
-### Global Settings
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `prometheus_global` | `{scrape_interval: 15s, scrape_timeout: 10s, evaluation_interval: 15s}` | Global Prometheus configuration |
-| `prometheus_external_labels` | `{environment: "{{ ansible_fqdn }}"}` | Labels attached to all time series |
-
-### Alerting
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `prometheus_alertmanager_config` | `[]` | Alertmanager targets configuration |
-| `prometheus_alert_relabel_configs` | `[]` | Alert relabeling rules |
-| `prometheus_alert_rules` | `[]` | Alerting rules (deployed to `rules/ansible_managed.yml`) |
-| `prometheus_alert_rules_files` | `[prometheus/rules/*.yml, ...]` | Paths to custom alert rule files |
-
-### Scrape Configuration
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `prometheus_scrape_configs` | *(self + node)* | List of scrape job configurations |
-| `prometheus_scrape_config_files` | `[prometheus/scrape_configs/*.yml, ...]` | Custom scrape config files (v2.43.0+) |
-| `prometheus_config_file` | `prometheus.yml.j2` | Alternative config template |
-
-### File-Based Service Discovery
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `prometheus_targets` | `{}` | Dict of targets written to `file_sd/<key>.yml` |
-| `prometheus_static_targets_files` | `[prometheus/targets/*.yml, ...]` | Paths to custom static target files |
-
-### Remote Storage
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `prometheus_remote_write` | `[]` | Remote write configuration |
-| `prometheus_remote_read` | `[]` | Remote read configuration |
-
-### Service
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `prometheus_stop_timeout` | `600s` | Systemd TimeoutStopSec |
-| `prometheus_config_flags_extra` | `{}` | Additional CLI flags as dict (e.g., `{alertmanager.timeout: 10s}`) |
-| `prometheus_read_only_dirs` | `[]` | Additional read-only paths for systemd (e.g., SSL cert dirs) |
-| `prometheus_enable_service` | `true` | Whether to start and enable the service. Set to `false` for image builds |
+| Variable | Type | Required | Default | Description |
+|----------|------|----------|---------|-------------|
+| `prometheus_version` | str | no | `3.4.1` | Prometheus package version. Also accepts `latest` as parameter. |
+| `prometheus_binary_url` | str | no | `https://github.com/{{ _prometheus_repo }}/releases/download/v{{ prometheus_version }}/prometheus-{{ prometheus_version }}.{{ ansible_facts['system'] \| lower }}-{{ _prometheus_go_ansible_arch }}.tar.gz` | URL of the Prometheus binaries .tar.gz file |
+| `prometheus_checksums_url` | str | no | `https://github.com/{{ _prometheus_repo }}/releases/download/v{{ prometheus_version }}/sha256sums.txt` | URL of the Prometheus checksums file |
+| `prometheus_config_dir` | str | no | `/etc/prometheus` | Path to directory with Prometheus configuration |
+| `prometheus_db_dir` | str | no | `/var/lib/prometheus` | Path to directory with Prometheus database |
+| `prometheus_read_only_dirs` | list of str | no |  | Additional paths that Prometheus is allowed to read (useful for SSL certs outside of the config directory) |
+| `prometheus_binary_install_dir` | str | no | `/usr/local/bin` | Directory to install binaries |
+| `prometheus_web_listen_address` | str | no | `0.0.0.0:9090` | Address on which Prometheus will listen |
+| `prometheus_web_config` | dict | no |  | A Prometheus web config yaml for configuring TLS and auth. |
+| `prometheus_web_external_url` | str | no |  | External address on which Prometheus is available. Useful when behind reverse proxy. |
+| `prometheus_metrics_path` | str | no | `/{{ (prometheus_web_external_url + '/metrics') \| regex_replace('^(.*://)?(.*?)/') }}` | Prometheus external metrics path |
+| `prometheus_storage_retention` | str | no | `30d` | Data retention period |
+| `prometheus_storage_retention_size` | str | no | `0` | Data retention size limit. Maximum number of bytes that can be stored for blocks. Units supported: KB, MB, GB, TB, PB. |
+| `prometheus_agent_mode` | bool | no | `false` | The Agent mode optimises Prometheus for the remote write use case. It disables querying, alerting, and local storage. |
+| `prometheus_config_flags_extra` | dict | no | `{}` | Additional configuration flags passed to prometheus binary at startup. Example: prometheus_config_flags_extra: { alertmanager.timeout: 10s } |
+| `prometheus_alertmanager_config` | list of dict | no | `[]` | Alertmanager configuration entries written to the `alerting.alertmanagers` section, for example `static_configs`. |
+| `prometheus_alert_relabel_configs` | list of dict | no | `[]` | Alert relabeling rules as a list in YAML format. |
+| `prometheus_global` | dict | no | `{"scrape_interval": "15s", "scrape_timeout": "10s", "evaluation_interval": "15s"}` | Prometheus global config. |
+| `prometheus_remote_write` | list of dict | no | `[]` | Remote write endpoints. Each item needs `url`; see the Prometheus `remote_write` configuration for the other keys. |
+| `prometheus_remote_read` | list of dict | no | `[]` | Remote read endpoints. Each item needs `url`; see the Prometheus `remote_read` configuration for the other keys. |
+| `prometheus_external_labels` | dict | no | `{"environment": "{{ ansible_fqdn \| default(ansible_host) \| default(inventory_hostname) }}"}` | Additional labels added to all time series and alerts when communicating with external systems |
+| `prometheus_targets` | dict | no |  | Targets which will be scraped via file-based service discovery. |
+| `prometheus_scrape_configs` | list of dict | no |  | Prometheus scrape job configurations. |
+| `prometheus_config_file` | str | no | `prometheus.yml.j2` | Custom prometheus configuration file template |
+| `prometheus_alert_rules` | list of dict | no |  | List of alerting rules deployed to rules/ansible_managed.yml. |
+| `prometheus_alert_rules_files` | list of str | no | `['prometheus/rules/*.yml', 'prometheus/rules/*.yaml']` | Paths to custom alerting rule files (globs). |
+| `prometheus_static_targets_files` | list of str | no | `['prometheus/targets/*.yml', 'prometheus/targets/*.json']` | Paths to custom static target files (copied to file_sd/). |
+| `prometheus_scrape_config_files` | list of str | no | `['prometheus/scrape_configs/*.yml', 'prometheus/scrape_configs/*.json']` | Paths to custom scrape config files (v2.43.0+). |
+| `prometheus_system_group` | str | no | `prometheus` | System group for Prometheus. |
+| `prometheus_system_user` | str | no | `prometheus` | System user for Prometheus. |
+| `prometheus_stop_timeout` | str | no | `600s` | How long to wait for Prometheus to shutdown (systemd TimeoutStopSec). |
+| `prometheus_enable_service` | bool | no | `true` | Whether to start and enable the Prometheus service. Set to false for image builds. |
+| `prometheus_download_local` | bool | no | `false` | Download and verify the archive on the Ansible controller and copy it to the target (`true`, for targets without internet access), or download it on the target (`false`) |
+| `prometheus_local_cache_path` | str | no | `/tmp/prometheus-{{ ansible_facts['system'] \| lower }}-{{ _prometheus_go_ansible_arch }}/{{ prometheus_version }}` | Path to cache the downloaded archive, on the host that downloads it |
+<!-- END_ANSIBLE_DOCS -->
 
 ## Example Playbook
 
@@ -256,6 +207,8 @@ All variables are defined in `defaults/main.yml` with sensible defaults. Full ar
       vars:
         prometheus_version: latest
 ```
+
+See also the complete playbook in [examples/prometheus-remote-write](../../examples/prometheus-remote-write/playbook.yml) and [examples/prometheus-offline](../../examples/prometheus-offline/playbook.yml).
 
 ## Architecture Support
 

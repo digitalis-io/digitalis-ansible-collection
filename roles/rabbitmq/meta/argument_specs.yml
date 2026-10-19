@@ -1,0 +1,460 @@
+---
+# yamllint disable rule:line-length
+argument_specs:
+  main:
+    short_description: Install and configure RabbitMQ.
+    description:
+      - Installs RabbitMQ and Erlang from the upstream repositories on Red Hat
+        Enterprise Linux (and rebuilds), Debian and Ubuntu, and manages
+        clustering, TLS, OAuth2, users, virtual hosts and queues.
+    author: Digitalis.io
+    options:
+      rabbitmq_version:
+        type: str
+        default: "4.2.5"
+        description: RabbitMQ version to install.
+      rabbitmq_admin_version:
+        type: str
+        default: "2.29.0"
+        description: Version of C(rabbitmqadmin) installed for the backup job.
+      rabbitmq_daemon:
+        type: str
+        default: rabbitmq-server
+        description: Name of the systemd service.
+      rabbitmq_state:
+        type: str
+        default: started
+        choices: [started, stopped]
+        description: State of the service.
+      rabbitmq_enabled:
+        type: bool
+        default: true
+        description: Enable the service at boot.
+      rabbitmq_log_level:
+        type: str
+        default: info
+        choices: [debug, info, warning, error]
+        description: Default log level.
+      rabbitmq_listen_address:
+        type: str
+        default: "0.0.0.0"
+        description: Interface the AMQP and Prometheus listeners bind to.
+      rabbitmq_nodename:
+        type: str
+        default: "rabbit@{{ ansible_hostname }}"
+        description: Node name used by C(rabbitmqctl) and the community.rabbitmq modules. Override when C(ansible_hostname) does not match the running node.
+      rabbitmq_use_longname:
+        type: bool
+        default: false
+        description: Use fully-qualified node names.
+      rabbitmq_domain:
+        type: str
+        description: Domain appended to cluster member names when C(rabbitmq_use_longname) is enabled. Falls back to C(internal).
+      rabbitmq_plugins:
+        type: list
+        elements: str
+        default: [rabbitmq_management, rabbitmq_prometheus]
+        description: Plugins to enable. Must include C(rabbitmq_management), which the queue and virtual host tasks use.
+      rabbitmq_amqp_port:
+        type: int
+        default: 5672
+        description: AMQP port.
+      rabbitmq_amqp_ssl_port:
+        type: int
+        default: 5671
+        description: AMQP TLS port, used when C(rabbitmq_ssl) is set.
+      rabbitmq_management_port:
+        type: int
+        default: 15672
+        description: Management UI and API port.
+      rabbitmq_management_ssl_port:
+        type: int
+        default: 15671
+        description: Management UI and API TLS port, used when C(rabbitmq_ssl) is set.
+      rabbitmq_management_listen_address:
+        type: str
+        default: "127.0.0.1"
+        description: Address the management listener binds to. Set to C(0.0.0.0) to expose it externally.
+      rabbitmq_prometheus_port:
+        type: int
+        default: 15692
+        description: Prometheus endpoint port.
+      rabbitmq_prometheus_ssl_port:
+        type: int
+        default: 15691
+        description: Prometheus endpoint TLS port, used when C(rabbitmq_ssl) is set.
+      rabbitmq_channel_max:
+        type: int
+        default: 128
+        description: Maximum channels per connection.
+      rabbitmq_frame_max:
+        type: int
+        default: 131072
+        description: Maximum frame size in bytes.
+      rabbitmq_initial_frame_max:
+        type: int
+        default: 4096
+        description: Initial frame size in bytes negotiated on connect.
+      rabbitmq_file_limits:
+        type: int
+        default: 65535
+        description: Open file limit (C(LimitNOFILE)) of the systemd unit.
+      rabbitmq_quorum_commands_soft_limit:
+        type: int
+        default: 64
+        description: Soft limit of in-flight quorum queue commands.
+      rabbitmq_disk_free_limit:
+        type: float
+        description: Free disk space limit relative to total RAM. Ignored when C(rabbitmq_disk_free_absolute) is set. Falls back to C(2.0).
+      rabbitmq_disk_free_absolute:
+        type: str
+        description: Free disk space limit as an absolute value, for example C(10GB). Takes precedence over C(rabbitmq_disk_free_limit).
+      rabbitmq_password_hashing:
+        type: str
+        description: Password hashing module. Falls back to C(rabbit_password_hashing_sha512).
+      rabbitmq_queue_leader_locator:
+        type: str
+        description: Queue leader placement strategy. Falls back to C(balanced).
+      rabbitmq_load_definitions_file:
+        type: path
+        description: Path to a definitions file on the target host that RabbitMQ loads at boot.
+      rabbitmq_home:
+        type: path
+        description: Home directory of the C(rabbitmq) user, where the Erlang cookie is written. Falls back to C(/var/lib/rabbitmq).
+      rabbitmq_apt_arch:
+        type: str
+        default: "{{ ansible_architecture | replace('x86_64', 'amd64') | replace('aarch64', 'arm64') }}"
+        description: APT architecture (Debian and Ubuntu only).
+      rabbitmq_apt_key_url:
+        type: str
+        default: "https://keys.openpgp.org/vks/v1/by-fingerprint/0A9AF2115F4687BD29803A206B73A36E6026DFCA"
+        description: URL of the RabbitMQ team OpenPGP key (Debian and Ubuntu only).
+      rabbitmq_apt_key_path:
+        type: path
+        default: /usr/share/keyrings/com.rabbitmq.team.gpg
+        description: Path the signing key is written to (Debian and Ubuntu only).
+      rabbitmq_apt_repos:
+        type: list
+        elements: dict
+        description: APT repositories to configure (Debian and Ubuntu only). Defaults to the RabbitMQ Erlang and server mirrors, see C(defaults/main.yml).
+        options:
+          url:
+            type: str
+            required: true
+            description: Repository URL.
+          type:
+            type: str
+            required: true
+            choices: [erlang, server]
+            description: Repository kind.
+      rabbitmq_erlang_version_map:
+        type: dict
+        description: Maps the distribution codename to the pinned Erlang package version (Debian and Ubuntu only). See C(defaults/main.yml) for the shipped map.
+      rabbitmq_erlang_version:
+        type: str
+        default: "{{ rabbitmq_erlang_version_map.get(ansible_distribution_release, '1:27.2-1') }}"
+        description: Erlang package version to install (Debian and Ubuntu only).
+      rabbitmq_erlang_packages:
+        type: list
+        elements: str
+        description: Erlang packages to install (Debian and Ubuntu only). Defaults to the 17 C(erlang-*) packages RabbitMQ requires, pinned to C(rabbitmq_erlang_version).
+      rabbitmq_erlang_cookie:
+        type: str
+        default: ""
+        no_log: true
+        description: Shared secret for cluster node authentication. Required for clusters and not written when empty.
+      rabbitmq_cluster_members:
+        type: list
+        elements: str
+        default: []
+        description: Cluster node names, for example C(node1). Empty creates a standalone node.
+      rabbitmq_cluster_name:
+        type: str
+        description: Cluster name, for example C(rabbit.example.com).
+      rabbitmq_cluster_tags:
+        type: dict
+        default: {}
+        description: Key/value tags applied to the cluster.
+      rabbitmq_cluster_partition_handling:
+        type: str
+        choices: [pause_minority, pause_if_all_down, autoheal, ignore]
+        description: Network partition handling strategy. Falls back to C(pause_minority).
+      rabbitmq_cluster_partition_handling_pause_if_all_down:
+        type: str
+        description: Recovery strategy used when C(rabbitmq_cluster_partition_handling) is C(pause_if_all_down). Falls back to C(autoheal).
+      rabbitmq_ssl:
+        type: dict
+        description: TLS configuration. When defined, TLS is enabled and the plain-text AMQP listener is disabled.
+        options:
+          key:
+            type: path
+            required: true
+            description: Path to the private key on the target host.
+          cert:
+            type: path
+            required: true
+            description: Path to the certificate on the target host.
+          ca:
+            type: path
+            required: true
+            description: Path to the CA certificate on the target host.
+          verify:
+            type: str
+            default: verify_none
+            choices: [verify_none, verify_peer]
+            description: Peer verification mode for AMQP clients.
+          versions:
+            type: raw
+            default: tlsv1.2
+            description: TLS protocol version or list of versions.
+          internode_encryption:
+            type: bool
+            default: false
+            description: Encrypt inter-node cluster traffic.
+      rabbitmq_ssl_ciphers:
+        type: list
+        elements: str
+        description: Allowed TLS cipher suites. Defaults to twelve AES-GCM suites, see C(defaults/main.yml).
+      rabbitmq_oauth2_issuer:
+        type: str
+        description: OIDC issuer URL. Setting it enables the OAuth2 backend and requires C(rabbitmq_oauth2_client_id) and C(rabbitmq_oauth2_client_secret).
+      rabbitmq_oauth2_client_id:
+        type: str
+        description: OAuth2 client ID.
+      rabbitmq_oauth2_client_secret:
+        type: str
+        no_log: true
+        description: OAuth2 client secret.
+      rabbitmq_oauth2_jwks_url:
+        type: str
+        description: JWKS endpoint URL. Discovered from the issuer when unset.
+      rabbitmq_oauth2_token_url:
+        type: str
+        description: Token endpoint URL. Falls back to C(<issuer>/protocol/openid-connect/token).
+      rabbitmq_oauth2_resource_server_id:
+        type: str
+        default: rabbitmq
+        description: Resource server identifier.
+      rabbitmq_oauth2_scopes:
+        type: str
+        default: "openid profile rabbitmq.tag:administrator"
+        description: Space-separated scopes requested by the management UI.
+      rabbitmq_oauth2_verify_peer:
+        type: bool
+        default: true
+        description: Verify the identity provider TLS certificate.
+      rabbitmq_oauth2_ca_cert:
+        type: path
+        description: CA certificate used to verify the identity provider.
+      rabbitmq_admin_user:
+        type: str
+        default: admin
+        description: Name of the administrator account created by the role.
+      rabbitmq_admin_password:
+        type: str
+        default: ""
+        no_log: true
+        description: Password of the administrator account. Required, the role fails when empty.
+      rabbitmq_admin_permissions:
+        type: list
+        elements: dict
+        default:
+          - vhost: /
+            configure_priv: ".*"
+            read_priv: ".*"
+            write_priv: ".*"
+        description: Permissions granted to the administrator account.
+        options:
+          vhost:
+            type: str
+            required: true
+            description: Virtual host the permissions apply to.
+          configure_priv:
+            type: str
+            default: ".*"
+            description: Configure permission regular expression.
+          read_priv:
+            type: str
+            default: ".*"
+            description: Read permission regular expression.
+          write_priv:
+            type: str
+            default: ".*"
+            description: Write permission regular expression.
+      rabbitmq_users:
+        type: list
+        elements: dict
+        default:
+          - name: guest
+            state: absent
+        description: Users to manage. The default removes the built-in C(guest) account.
+        options:
+          name:
+            type: str
+            required: true
+            description: Username.
+          password:
+            type: str
+            no_log: true
+            description: Password. Required when C(state) is C(present).
+          state:
+            type: str
+            default: present
+            choices: [present, absent]
+            description: Create or remove the user.
+          vhost:
+            type: str
+            default: /
+            description: Virtual host to grant permissions on.
+          configure_priv:
+            type: str
+            default: ".*"
+            description: Configure permission regular expression.
+          read_priv:
+            type: str
+            default: ".*"
+            description: Read permission regular expression.
+          write_priv:
+            type: str
+            default: ".*"
+            description: Write permission regular expression.
+          tags:
+            type: str
+            description: Comma-separated RabbitMQ user tags, for example C(administrator) or C(monitoring).
+          update_password:
+            type: str
+            default: on_create
+            choices: [always, on_create]
+            description: Whether to reset the password of an existing user.
+      rabbitmq_vhosts:
+        type: list
+        elements: dict
+        default: []
+        description: Virtual hosts to manage.
+        options:
+          name:
+            type: str
+            required: true
+            description: Virtual host name, for example C(/app).
+          state:
+            type: str
+            default: present
+            choices: [present, absent]
+            description: Create or remove the virtual host.
+          tracing:
+            type: bool
+            default: false
+            description: Enable message tracing.
+      rabbitmq_queue_defaults:
+        type: dict
+        default:
+          x-queue-type: quorum
+          x-delivery-limit: 20
+          x-quorum-initial-group-size: 3
+        description: Arguments merged into every queue in C(rabbitmq_queues).
+      rabbitmq_queues:
+        type: list
+        elements: dict
+        default: []
+        description: Queues to manage. Requires the management plugin.
+        options:
+          name:
+            type: str
+            required: true
+            description: Queue name.
+          state:
+            type: str
+            default: present
+            choices: [present, absent]
+            description: Create or remove the queue.
+          vhost:
+            type: str
+            default: /
+            description: Virtual host of the queue.
+          create_dlq:
+            type: bool
+            default: false
+            description: Also create a C(<name>-dlq) dead-letter queue and route rejected messages to it.
+          durable:
+            type: bool
+            description: Keep the queue across broker restarts.
+          max_length:
+            type: int
+            description: Maximum number of messages.
+          max_priority:
+            type: int
+            description: Maximum priority, 0 to 255, enabling a priority queue.
+          leader:
+            type: str
+            description: Node the API calls are sent to. Defaults to the management listen address, or the inventory hostname when that is C(0.0.0.0).
+          arguments:
+            type: dict
+            description: Extra queue arguments merged over C(rabbitmq_queue_defaults).
+      rabbitmq_use_haproxy:
+        type: bool
+        default: false
+        description: Install and configure HAProxy in front of RabbitMQ.
+      rabbitmq_haproxy_amqp_port:
+        type: int
+        default: 5670
+        description: HAProxy frontend port for AMQP.
+      rabbitmq_haproxy_amqp_ssl_port:
+        type: int
+        default: 5673
+        description: HAProxy frontend port for AMQP over TLS.
+      rabbitmq_haproxy_mgmt_port:
+        type: int
+        default: 15670
+        description: HAProxy frontend port for the management UI.
+      rabbitmq_haproxy_mgmt_ssl_port:
+        type: int
+        default: 15673
+        description: HAProxy frontend port for the management UI over TLS.
+      rabbitmq_haproxy_stats_port:
+        type: int
+        default: 1936
+        description: HAProxy statistics port.
+      rabbitmq_haproxy_stats_address:
+        type: str
+        default: "127.0.0.1"
+        description: Address the HAProxy statistics page binds to.
+      rabbitmq_haproxy_log_address:
+        type: str
+        default: "127.0.0.1"
+        description: Address HAProxy sends logs to.
+      rabbitmq_haproxy_group:
+        type: str
+        default: rabbitmq
+        description: Inventory group whose hosts become HAProxy backends.
+      rabbitmq_backup_cronjob:
+        type: dict
+        description: Scheduled export of the cluster definitions with C(rabbitmqadmin).
+        options:
+          enabled:
+            type: bool
+            default: false
+            description: Install the backup job.
+          schedule:
+            type: str
+            default: "0 0 * * *"
+            description: Cron schedule.
+          directory:
+            type: path
+            default: /var/backups/rabbitmq
+            description: Directory the exports are written to (mode C(0700)).
+          retention_days:
+            type: int
+            default: 7
+            description: Days to keep exports.
+      rabbitmq_sysctl:
+        type: dict
+        default:
+          fs.file-max: 200000
+          net.core.rmem_max: 16777216
+          net.core.wmem_max: 16777216
+          net.core.somaxconn: 4096
+          net.ipv4.tcp_keepalive_time: 60
+          net.ipv4.tcp_keepalive_intvl: 10
+          net.ipv4.tcp_keepalive_probes: 3
+          net.ipv4.ip_local_port_range: "1024 65535"
+        description: Kernel parameters applied with C(ansible.posix.sysctl). Skipped on Docker hosts.

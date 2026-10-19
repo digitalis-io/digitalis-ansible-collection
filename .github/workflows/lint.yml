@@ -25,7 +25,7 @@ jobs:
           python-version: "3.13"
 
       - name: Install linters
-        run: pip3 install ansible-core ansible-lint yamllint
+        run: pip3 install ansible-core ansible-lint yamllint -r scripts/requirements-docs.txt
 
       - name: Install collections
         run: ansible-galaxy collection install community.rabbitmq ansible.posix
@@ -35,3 +35,14 @@ jobs:
 
       - name: ansible-lint
         run: ansible-lint
+
+      - name: Check role READMEs are up to date
+        run: |
+          scripts/generate-docs.sh
+          test -z "$(git status --porcelain -- roles)"
+
+      - name: Install the collection
+        run: ansible-galaxy collection install .
+
+      - name: Check examples
+        run: scripts/check-examples.py

@@ -1,0 +1,40 @@
+---
+# Prometheus with static and file-based scrape targets, forwarding samples to
+# a remote write endpoint (Mimir, Thanos receive, ...).
+#
+# The remote write password is read from the environment of the controller:
+#   export REMOTE_WRITE_PASSWORD=...
+- name: Install Prometheus
+  hosts: monitoring
+  become: true
+  roles:
+    - role: digitalis.digitalis.prometheus
+      vars:
+        prometheus_storage_retention: 15d
+        prometheus_external_labels:
+          environment: production
+          region: eu-west-1
+        prometheus_targets:
+          node:
+            - targets:
+                - web01.example.com:9100
+                - web02.example.com:9100
+              labels:
+                team: platform
+        prometheus_scrape_configs:
+          - job_name: prometheus
+            static_configs:
+              - targets:
+                  - localhost:9090
+          - job_name: node
+            file_sd_configs:
+              - files:
+                  - /etc/prometheus/file_sd/node.yml
+        prometheus_remote_write:
+          - url: https://mimir.example.com/api/v1/push
+            basic_auth:
+              username: prometheus
+              password: "{{ lookup('ansible.builtin.env', 'REMOTE_WRITE_PASSWORD') }}"
+            queue_config:
+              max_samples_per_send: 1000
+              batch_send_deadline: 5s
