@@ -11,7 +11,7 @@ argument_specs:
       prometheus_version:
         description:
           - "Prometheus package version. Also accepts C(latest) as parameter."
-        default: "3.4.1"
+        default: "3.13.4"
       prometheus_binary_url:
         description: "URL of the Prometheus binaries .tar.gz file"
         default: "https://github.com/{{ _prometheus_repo }}/releases/download/v{{ prometheus_version }}/prometheus-{{ prometheus_version }}.{{ ansible_facts['system'] | lower }}-{{ _prometheus_go_ansible_arch }}.tar.gz"
@@ -28,6 +28,7 @@ argument_specs:
         description: "Additional paths that Prometheus is allowed to read (useful for SSL certs outside of the config directory)"
         type: "list"
         elements: "str"
+        default: []
       prometheus_binary_install_dir:
         description:
           - "Directory to install binaries"
@@ -38,8 +39,10 @@ argument_specs:
       prometheus_web_config:
         description: "A Prometheus web config yaml for configuring TLS and auth."
         type: "dict"
+        default: {tls_server_config: {}, http_server_config: {}, basic_auth_users: {}}
       prometheus_web_external_url:
         description: "External address on which Prometheus is available. Useful when behind reverse proxy."
+        default: ""
       prometheus_metrics_path:
         description: "Prometheus external metrics path"
         default: "/{{ (prometheus_web_external_url + '/metrics') | regex_replace('^(.*://)?(.*?)/') }}"
@@ -105,9 +108,10 @@ argument_specs:
         description:
           - "Targets which will be scraped via file-based service discovery."
         type: "dict"
+        default: {}
       prometheus_scrape_configs:
         description:
-          - "Prometheus scrape job configurations."
+          - "Prometheus scrape job configurations. Defaults to a C(prometheus) job scraping the local server and a C(node) job reading targets from C(file_sd/node.yml)."
         type: "list"
         elements: "dict"
       prometheus_config_file:
@@ -118,6 +122,7 @@ argument_specs:
           - "List of alerting rules deployed to rules/ansible_managed.yml."
         type: "list"
         elements: "dict"
+        default: []
       prometheus_alert_rules_files:
         description:
           - "Paths to custom alerting rule files (globs)."

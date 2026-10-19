@@ -39,6 +39,8 @@ jobs:
       - name: Check role READMEs are up to date
         run: |
           scripts/generate-docs.sh
+          git status --porcelain -- roles
+          git diff -- roles
           test -z "$(git status --porcelain -- roles)"
 
       - name: Install the collection

@@ -61,6 +61,8 @@ def main():
             errors.append(f"{rel}: syntax check failed\n{proc.stdout}{proc.stderr}")
         for play in loader.load_from_file(str(playbook)):
             for entry in play.get("roles", []):
+                if not isinstance(entry, dict):
+                    continue
                 name = entry.get("role", "")
                 if name.startswith(PREFIX):
                     errors.extend(

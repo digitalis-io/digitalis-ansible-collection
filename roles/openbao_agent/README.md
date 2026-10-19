@@ -92,12 +92,12 @@ Generated from `meta/argument_specs.yml`; run `scripts/generate-docs.sh` to refr
 | `openbao_agent_retry_num_retries` | int | no | `12` | Number of retries for failed requests to the server. |
 | `openbao_agent_log_level` | str | no | `info` | Agent log level. One of `trace`, `debug`, `info`, `warn`, `error`. |
 | `openbao_agent_auth_method` | str | no | `approle` | Auto-auth method. One of `approle`, `token_file`. |
-| `openbao_agent_auth_mount_path` | str | no |  | Mount path of the auth method. Defaults to `auth/approle` or `auth/token`. |
+| `openbao_agent_auth_mount_path` | str | no | `auth/{{ openbao_agent_auth_method if openbao_agent_auth_method != 'token_file' else 'token' }}` | Mount path of the auth method. Defaults to `auth/approle` or `auth/token`. |
 | `openbao_agent_approle_role_id` | str | no | `""` | AppRole role ID. Required for the approle method. |
 | `openbao_agent_approle_secret_id` | str | no | `""` | AppRole secret ID. Required for the approle method. |
 | `openbao_agent_token` | str | no | `""` | Token for the token_file method. |
 | `openbao_agent_token_sink_enabled` | bool | no | `true` | Write the auto-auth token to a file sink. |
-| `openbao_agent_token_sink_path` | path | no |  | Token sink path. Defaults to `<data_dir>/agent-token`. |
+| `openbao_agent_token_sink_path` | path | no | `{{ openbao_agent_data_dir }}/agent-token` | Token sink path. Defaults to `<data_dir>/agent-token`. |
 | `openbao_agent_token_sink_mode` | str | no | `0640` | Octal file mode of the token sink. |
 | `openbao_agent_listener_address` | str | no | `""` | Address for a local API proxy listener, for example `127.0.0.1:8100`. Empty disables it. |
 | `openbao_agent_listener_allow_nonlocal` | bool | no | `false` | Allow a non-loopback listener address. The listener has no TLS and uses the agent token. |

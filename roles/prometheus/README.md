@@ -51,16 +51,16 @@ Generated from `meta/argument_specs.yml`; run `scripts/generate-docs.sh` to refr
 
 | Variable | Type | Required | Default | Description |
 |----------|------|----------|---------|-------------|
-| `prometheus_version` | str | no | `3.4.1` | Prometheus package version. Also accepts `latest` as parameter. |
+| `prometheus_version` | str | no | `3.13.4` | Prometheus package version. Also accepts `latest` as parameter. |
 | `prometheus_binary_url` | str | no | `https://github.com/{{ _prometheus_repo }}/releases/download/v{{ prometheus_version }}/prometheus-{{ prometheus_version }}.{{ ansible_facts['system'] \| lower }}-{{ _prometheus_go_ansible_arch }}.tar.gz` | URL of the Prometheus binaries .tar.gz file |
 | `prometheus_checksums_url` | str | no | `https://github.com/{{ _prometheus_repo }}/releases/download/v{{ prometheus_version }}/sha256sums.txt` | URL of the Prometheus checksums file |
 | `prometheus_config_dir` | str | no | `/etc/prometheus` | Path to directory with Prometheus configuration |
 | `prometheus_db_dir` | str | no | `/var/lib/prometheus` | Path to directory with Prometheus database |
-| `prometheus_read_only_dirs` | list of str | no |  | Additional paths that Prometheus is allowed to read (useful for SSL certs outside of the config directory) |
+| `prometheus_read_only_dirs` | list of str | no | `[]` | Additional paths that Prometheus is allowed to read (useful for SSL certs outside of the config directory) |
 | `prometheus_binary_install_dir` | str | no | `/usr/local/bin` | Directory to install binaries |
 | `prometheus_web_listen_address` | str | no | `0.0.0.0:9090` | Address on which Prometheus will listen |
-| `prometheus_web_config` | dict | no |  | A Prometheus web config yaml for configuring TLS and auth. |
-| `prometheus_web_external_url` | str | no |  | External address on which Prometheus is available. Useful when behind reverse proxy. |
+| `prometheus_web_config` | dict | no | `{"tls_server_config": {}, "http_server_config": {}, "basic_auth_users": {}}` | A Prometheus web config yaml for configuring TLS and auth. |
+| `prometheus_web_external_url` | str | no | `""` | External address on which Prometheus is available. Useful when behind reverse proxy. |
 | `prometheus_metrics_path` | str | no | `/{{ (prometheus_web_external_url + '/metrics') \| regex_replace('^(.*://)?(.*?)/') }}` | Prometheus external metrics path |
 | `prometheus_storage_retention` | str | no | `30d` | Data retention period |
 | `prometheus_storage_retention_size` | str | no | `0` | Data retention size limit. Maximum number of bytes that can be stored for blocks. Units supported: KB, MB, GB, TB, PB. |
@@ -72,10 +72,10 @@ Generated from `meta/argument_specs.yml`; run `scripts/generate-docs.sh` to refr
 | `prometheus_remote_write` | list of dict | no | `[]` | Remote write endpoints. Each item needs `url`; see the Prometheus `remote_write` configuration for the other keys. |
 | `prometheus_remote_read` | list of dict | no | `[]` | Remote read endpoints. Each item needs `url`; see the Prometheus `remote_read` configuration for the other keys. |
 | `prometheus_external_labels` | dict | no | `{"environment": "{{ ansible_fqdn \| default(ansible_host) \| default(inventory_hostname) }}"}` | Additional labels added to all time series and alerts when communicating with external systems |
-| `prometheus_targets` | dict | no |  | Targets which will be scraped via file-based service discovery. |
-| `prometheus_scrape_configs` | list of dict | no |  | Prometheus scrape job configurations. |
+| `prometheus_targets` | dict | no | `{}` | Targets which will be scraped via file-based service discovery. |
+| `prometheus_scrape_configs` | list of dict | no |  | Prometheus scrape job configurations. Defaults to a `prometheus` job scraping the local server and a `node` job reading targets from `file_sd/node.yml`. |
 | `prometheus_config_file` | str | no | `prometheus.yml.j2` | Custom prometheus configuration file template |
-| `prometheus_alert_rules` | list of dict | no |  | List of alerting rules deployed to rules/ansible_managed.yml. |
+| `prometheus_alert_rules` | list of dict | no | `[]` | List of alerting rules deployed to rules/ansible_managed.yml. |
 | `prometheus_alert_rules_files` | list of str | no | `['prometheus/rules/*.yml', 'prometheus/rules/*.yaml']` | Paths to custom alerting rule files (globs). |
 | `prometheus_static_targets_files` | list of str | no | `['prometheus/targets/*.yml', 'prometheus/targets/*.json']` | Paths to custom static target files (copied to file_sd/). |
 | `prometheus_scrape_config_files` | list of str | no | `['prometheus/scrape_configs/*.yml', 'prometheus/scrape_configs/*.json']` | Paths to custom scrape config files (v2.43.0+). |

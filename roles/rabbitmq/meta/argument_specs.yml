@@ -24,8 +24,7 @@ argument_specs:
       rabbitmq_state:
         type: str
         default: started
-        choices: [started, stopped]
-        description: State of the service.
+        description: State passed to the systemd module, for example C(started) or C(stopped).
       rabbitmq_enabled:
         type: bool
         default: true
@@ -33,8 +32,7 @@ argument_specs:
       rabbitmq_log_level:
         type: str
         default: info
-        choices: [debug, info, warning, error]
-        description: Default log level.
+        description: Default log level, for example C(debug), C(info), C(warning) or C(error).
       rabbitmq_listen_address:
         type: str
         default: "0.0.0.0"
@@ -144,7 +142,6 @@ argument_specs:
             description: Repository URL.
           type:
             type: str
-            required: true
             choices: [erlang, server]
             description: Repository kind.
       rabbitmq_erlang_version_map:
@@ -211,6 +208,10 @@ argument_specs:
             type: bool
             default: false
             description: Encrypt inter-node cluster traffic.
+          password:
+            type: str
+            no_log: true
+            description: Private key password. Accepted for compatibility, currently unused.
       rabbitmq_ssl_ciphers:
         type: list
         elements: str
@@ -246,6 +247,10 @@ argument_specs:
       rabbitmq_oauth2_ca_cert:
         type: path
         description: CA certificate used to verify the identity provider.
+      rabbitmq_erl_ssl_path:
+        type: str
+        default: /usr/lib/erlang/lib/ssl-11.2.6/ebin
+        description: Fallback Erlang SSL library path written to C(rabbitmq-env.conf) when TLS is enabled and the path cannot be detected.
       rabbitmq_admin_user:
         type: str
         default: admin
@@ -320,7 +325,7 @@ argument_specs:
             description: Write permission regular expression.
           tags:
             type: str
-            description: Comma-separated RabbitMQ user tags, for example C(administrator) or C(monitoring).
+            description: RabbitMQ user tags as a comma-separated string, for example C(administrator,monitoring). Lists are not supported.
           update_password:
             type: str
             default: on_create
@@ -390,6 +395,9 @@ argument_specs:
           arguments:
             type: dict
             description: Extra queue arguments merged over C(rabbitmq_queue_defaults).
+          dlq_arguments:
+            type: dict
+            description: Extra arguments for the C(<name>-dlq) queue, merged over C(rabbitmq_queue_defaults).
       rabbitmq_use_haproxy:
         type: bool
         default: false
@@ -428,7 +436,12 @@ argument_specs:
         description: Inventory group whose hosts become HAProxy backends.
       rabbitmq_backup_cronjob:
         type: dict
-        description: Scheduled export of the cluster definitions with C(rabbitmqadmin).
+        description: Scheduled export of the cluster definitions with C(rabbitmqadmin). When overriding, set every key, because the defaults below apply only to the whole dict.
+        default:
+          enabled: false
+          schedule: "0 0 * * *"
+          directory: /var/backups/rabbitmq
+          retention_days: 7
         options:
           enabled:
             type: bool

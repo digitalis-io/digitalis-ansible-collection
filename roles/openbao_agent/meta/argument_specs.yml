@@ -72,6 +72,7 @@ argument_specs:
         description: Auto-auth method.
       openbao_agent_auth_mount_path:
         type: str
+        default: "auth/{{ openbao_agent_auth_method if openbao_agent_auth_method != 'token_file' else 'token' }}"
         description: Mount path of the auth method. Defaults to C(auth/approle) or C(auth/token).
       openbao_agent_approle_role_id:
         type: str
@@ -94,6 +95,7 @@ argument_specs:
         description: Write the auto-auth token to a file sink.
       openbao_agent_token_sink_path:
         type: path
+        default: "{{ openbao_agent_data_dir }}/agent-token"
         description: Token sink path. Defaults to C(<data_dir>/agent-token).
       openbao_agent_token_sink_mode:
         type: str

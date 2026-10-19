@@ -179,9 +179,9 @@ Generated from `meta/argument_specs.yml`; run `scripts/generate-docs.sh` to refr
 | `rabbitmq_version` | str | no | `4.2.5` | RabbitMQ version to install. |
 | `rabbitmq_admin_version` | str | no | `2.29.0` | Version of `rabbitmqadmin` installed for the backup job. |
 | `rabbitmq_daemon` | str | no | `rabbitmq-server` | Name of the systemd service. |
-| `rabbitmq_state` | str | no | `started` | State of the service. One of `started`, `stopped`. |
+| `rabbitmq_state` | str | no | `started` | State passed to the systemd module, for example `started` or `stopped`. |
 | `rabbitmq_enabled` | bool | no | `true` | Enable the service at boot. |
-| `rabbitmq_log_level` | str | no | `info` | Default log level. One of `debug`, `info`, `warning`, `error`. |
+| `rabbitmq_log_level` | str | no | `info` | Default log level, for example `debug`, `info`, `warning` or `error`. |
 | `rabbitmq_listen_address` | str | no | `0.0.0.0` | Interface the AMQP and Prometheus listeners bind to. |
 | `rabbitmq_nodename` | str | no | `rabbit@{{ ansible_hostname }}` | Node name used by `rabbitmqctl` and the community.rabbitmq modules. Override when `ansible_hostname` does not match the running node. |
 | `rabbitmq_use_longname` | bool | no | `false` | Use fully-qualified node names. |
@@ -229,6 +229,7 @@ Generated from `meta/argument_specs.yml`; run `scripts/generate-docs.sh` to refr
 | `rabbitmq_oauth2_scopes` | str | no | `openid profile rabbitmq.tag:administrator` | Space-separated scopes requested by the management UI. |
 | `rabbitmq_oauth2_verify_peer` | bool | no | `true` | Verify the identity provider TLS certificate. |
 | `rabbitmq_oauth2_ca_cert` | path | no |  | CA certificate used to verify the identity provider. |
+| `rabbitmq_erl_ssl_path` | str | no | `/usr/lib/erlang/lib/ssl-11.2.6/ebin` | Fallback Erlang SSL library path written to `rabbitmq-env.conf` when TLS is enabled and the path cannot be detected. |
 | `rabbitmq_admin_user` | str | no | `admin` | Name of the administrator account created by the role. |
 | `rabbitmq_admin_password` | str | no | `""` | Password of the administrator account. Required, the role fails when empty. |
 | `rabbitmq_admin_permissions` | list of dict | no | `[{'vhost': '/', 'configure_priv': '.*', 'read_priv': '.*', 'write_priv': '.*'}]` | Permissions granted to the administrator account. |
@@ -245,7 +246,7 @@ Generated from `meta/argument_specs.yml`; run `scripts/generate-docs.sh` to refr
 | `rabbitmq_haproxy_stats_address` | str | no | `127.0.0.1` | Address the HAProxy statistics page binds to. |
 | `rabbitmq_haproxy_log_address` | str | no | `127.0.0.1` | Address HAProxy sends logs to. |
 | `rabbitmq_haproxy_group` | str | no | `rabbitmq` | Inventory group whose hosts become HAProxy backends. |
-| `rabbitmq_backup_cronjob` | dict | no |  | Scheduled export of the cluster definitions with `rabbitmqadmin`. |
+| `rabbitmq_backup_cronjob` | dict | no | `{'enabled': False, 'schedule': '0 0 * * *', 'directory': '/var/backups/rabbitmq', 'retention_days': 7}` | Scheduled export of the cluster definitions with `rabbitmqadmin`. When overriding, set every key, because the defaults below apply only to the whole dict. |
 | `rabbitmq_sysctl` | dict | no | `{"fs.file-max": 200000, "net.core.rmem_max": 16777216, "net.core.wmem_max": 16777216, "net.core.somaxconn": 4096, "net.ipv4.tcp_keepalive_time": 60, "net.ipv4.tcp_keepalive_intvl": 10, "net.ipv4.tcp_keepalive_probes": 3, "net.ipv4.ip_local_port_range": "1024 65535"}` | Kernel parameters applied with `ansible.posix.sysctl`. Skipped on Docker hosts. |
 
 ### `rabbitmq_apt_repos` options
@@ -253,7 +254,7 @@ Generated from `meta/argument_specs.yml`; run `scripts/generate-docs.sh` to refr
 | Variable | Type | Required | Default | Description |
 |----------|------|----------|---------|-------------|
 | `url` | str | yes |  | Repository URL. |
-| `type` | str | yes |  | Repository kind. One of `erlang`, `server`. |
+| `type` | str | no |  | Repository kind. One of `erlang`, `server`. |
 
 ### `rabbitmq_ssl` options
 
@@ -265,6 +266,7 @@ Generated from `meta/argument_specs.yml`; run `scripts/generate-docs.sh` to refr
 | `verify` | str | no | `verify_none` | Peer verification mode for AMQP clients. One of `verify_none`, `verify_peer`. |
 | `versions` | raw | no | `tlsv1.2` | TLS protocol version or list of versions. |
 | `internode_encryption` | bool | no | `false` | Encrypt inter-node cluster traffic. |
+| `password` | str | no |  | Private key password. Accepted for compatibility, currently unused. |
 
 ### `rabbitmq_admin_permissions` options
 
@@ -286,7 +288,7 @@ Generated from `meta/argument_specs.yml`; run `scripts/generate-docs.sh` to refr
 | `configure_priv` | str | no | `.*` | Configure permission regular expression. |
 | `read_priv` | str | no | `.*` | Read permission regular expression. |
 | `write_priv` | str | no | `.*` | Write permission regular expression. |
-| `tags` | str | no |  | Comma-separated RabbitMQ user tags, for example `administrator` or `monitoring`. |
+| `tags` | str | no |  | RabbitMQ user tags as a comma-separated string, for example `administrator,monitoring`. Lists are not supported. |
 | `update_password` | str | no | `on_create` | Whether to reset the password of an existing user. One of `always`, `on_create`. |
 
 ### `rabbitmq_vhosts` options
@@ -310,6 +312,7 @@ Generated from `meta/argument_specs.yml`; run `scripts/generate-docs.sh` to refr
 | `max_priority` | int | no |  | Maximum priority, 0 to 255, enabling a priority queue. |
 | `leader` | str | no |  | Node the API calls are sent to. Defaults to the management listen address, or the inventory hostname when that is `0.0.0.0`. |
 | `arguments` | dict | no |  | Extra queue arguments merged over `rabbitmq_queue_defaults`. |
+| `dlq_arguments` | dict | no |  | Extra arguments for the `<name>-dlq` queue, merged over `rabbitmq_queue_defaults`. |
 
 ### `rabbitmq_backup_cronjob` options
 
