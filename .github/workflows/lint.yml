@@ -36,6 +36,12 @@ jobs:
       - name: ansible-lint
         run: ansible-lint
 
+      - name: Test the argument_specs check
+        run: tests/spec-check/run.sh
+
+      - name: Check argument_specs are complete
+        run: scripts/check-specs.py
+
       - name: Check role READMEs are up to date
         run: |
           scripts/generate-docs.sh

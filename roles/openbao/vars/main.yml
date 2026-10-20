@@ -1,24 +1,24 @@
 ---
-openbao_apt_keyring: /etc/apt/keyrings/openbao.asc
+_openbao_apt_keyring: /etc/apt/keyrings/openbao.asc
 
 _openbao_package_name:
   Debian: "openbao={{ openbao_version }}"
   RedHat: "openbao-{{ openbao_version }}"
 
-openbao_package_name: "{{ _openbao_package_name[ansible_facts['os_family']] }}"
+_openbao_package: "{{ _openbao_package_name[ansible_facts['os_family']] }}"
 
-openbao_supported_os_families:
+_openbao_supported_os_families:
   - Debian
   - RedHat
 
-openbao_config_file: /etc/openbao/openbao.hcl
+_openbao_config_file: /etc/openbao/openbao.hcl
 
-openbao_plugin_types:
+_openbao_plugin_types:
   - secret
   - auth
   - database
 
-openbao_plugin_keys:
+_openbao_plugin_keys:
   - type
   - name
   - image
@@ -29,6 +29,6 @@ openbao_plugin_keys:
   - args
   - env
 
-openbao_init_environment:
+_openbao_init_environment:
   BAO_ADDR: "{{ openbao_init_address }}"
   BAO_SKIP_VERIFY: "{{ openbao_init_skip_verify | bool | ternary('true', 'false') }}"

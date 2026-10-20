@@ -1,0 +1,46 @@
+---
+# Applies the role with prometheus_test_case.vars and requires it to fail with
+# a message containing prometheus_test_case.expect. The failing task must be the
+# argument validation unless prometheus_test_case.failed_task names the later
+# task that is expected to fail. Argument validation only sees variables passed
+# to the role, so each one is passed explicitly: the case value, or a valid
+# baseline value when the case does not set it.
+- name: "Reject {{ prometheus_test_case.name }}"
+  block:
+    - name: "Apply prometheus with {{ prometheus_test_case.name }}"
+      ansible.builtin.include_role:
+        name: prometheus
+      vars:
+        prometheus_test_effective: "{{ prometheus_test_baseline | combine(prometheus_test_case.vars) }}"
+        prometheus_agent_mode: "{{ prometheus_test_effective['prometheus_agent_mode'] }}"
+        prometheus_enable_service: "{{ prometheus_test_effective['prometheus_enable_service'] }}"
+        prometheus_download_local: "{{ prometheus_test_effective['prometheus_download_local'] }}"
+        prometheus_read_only_dirs: "{{ prometheus_test_effective['prometheus_read_only_dirs'] }}"
+        prometheus_alert_rules_files: "{{ prometheus_test_effective['prometheus_alert_rules_files'] }}"
+        prometheus_config_flags_extra: "{{ prometheus_test_effective['prometheus_config_flags_extra'] }}"
+        prometheus_global: "{{ prometheus_test_effective['prometheus_global'] }}"
+        prometheus_web_config: "{{ prometheus_test_effective['prometheus_web_config'] }}"
+        prometheus_targets: "{{ prometheus_test_effective['prometheus_targets'] }}"
+        prometheus_external_labels: "{{ prometheus_test_effective['prometheus_external_labels'] }}"
+        prometheus_alert_rules: "{{ prometheus_test_effective['prometheus_alert_rules'] }}"
+        prometheus_alertmanager_config: "{{ prometheus_test_effective['prometheus_alertmanager_config'] }}"
+        prometheus_scrape_configs: "{{ prometheus_test_effective['prometheus_scrape_configs'] }}"
+        prometheus_remote_write: "{{ prometheus_test_effective['prometheus_remote_write'] }}"
+        prometheus_web_listen_address: "{{ prometheus_test_effective['prometheus_web_listen_address'] }}"
+
+    - name: Fail because the role accepted invalid input
+      ansible.builtin.fail:
+        msg: "prometheus accepted {{ prometheus_test_case.name }}"
+
+  rescue:
+    - name: Re-raise when the role accepted invalid input
+      ansible.builtin.fail:
+        msg: "{{ ansible_failed_result.msg }}"
+      when: ansible_failed_task.name == 'Fail because the role accepted invalid input'
+
+    - name: "Assert the failure explains {{ prometheus_test_case.name }}"
+      ansible.builtin.assert:
+        that:
+          - prometheus_test_case.expect in ansible_failed_result.msg
+          - ansible_failed_task.name is search(prometheus_test_case.failed_task | default(prometheus_test_argspec_task) | regex_escape)
+        fail_msg: "Expected '{{ prometheus_test_case.expect }}' from '{{ prometheus_test_case.failed_task | default(prometheus_test_argspec_task) }}', got '{{ ansible_failed_task.name }}': {{ ansible_failed_result.msg }}"

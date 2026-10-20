@@ -5,6 +5,20 @@
 - `rabbitmq`: role moved in from ansible-role-rabbitmq. The collection now
   depends on `community.rabbitmq` and `ansible.posix`.
 - `prometheus`: role moved in from ansible-role-prometheus.
+- Role READMEs list variables generated from `meta/argument_specs.yml` with
+  `aar-doc`; run `scripts/generate-docs.sh` to refresh them. The `examples/`
+  directory holds complete playbooks.
+- Internal constants in `vars/` now have a `_` prefix and are private. An
+  override of an old name is ignored without an error: `openbao_apt_keyring`,
+  `openbao_package_name` (now `_openbao_package`), `openbao_supported_os_families`,
+  `openbao_config_file`, `openbao_plugin_types`, `openbao_plugin_keys`,
+  `openbao_init_environment`, `openbao_agent_auth_methods`,
+  `openbao_agent_template_keys`, `openbao_agent_forbidden_dest_dirs`,
+  `openbao_agent_template_dest_dirs` and `prometheus_github_api_headers`.
+- `openbao_agent`: `openbao_agent_templates` items are validated on entry; a
+  missing `destination` or an unknown key now fails with an argument spec error.
+- CI checks that every role variable is documented in its spec and that the
+  generated READMEs are current.
 
 ## 0.1.0
 

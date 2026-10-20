@@ -1,0 +1,92 @@
+---
+- name: Converge
+  hosts: all
+  gather_facts: true
+  vars:
+    prometheus_test_argspec_task: "Validating arguments against arg spec 'main'"
+    prometheus_test_baseline:
+      prometheus_agent_mode: false
+      prometheus_enable_service: true
+      prometheus_download_local: false
+      prometheus_read_only_dirs: []
+      prometheus_alert_rules_files: []
+      prometheus_config_flags_extra: {}
+      prometheus_global: { scrape_interval: 15s }
+      prometheus_web_config: { tls_server_config: {}, http_server_config: {}, basic_auth_users: {} }
+      prometheus_targets: {}
+      prometheus_external_labels: { environment: molecule }
+      prometheus_alert_rules: []
+      prometheus_alertmanager_config: []
+      prometheus_scrape_configs: [{ job_name: prometheus }]
+      prometheus_remote_write: []
+      prometheus_web_listen_address: "0.0.0.0:9090"
+    prometheus_test_rejected_cases:
+      - name: a non-boolean agent mode
+        vars: { prometheus_agent_mode: maybe }
+        expect: "argument 'prometheus_agent_mode' is of type"
+      - name: a non-boolean service switch
+        vars: { prometheus_enable_service: sometimes }
+        expect: "argument 'prometheus_enable_service' is of type"
+      - name: a non-boolean local download switch
+        vars: { prometheus_download_local: nope }
+        expect: "argument 'prometheus_download_local' is of type"
+      - name: a read-only directory list given as a dict
+        vars: { prometheus_read_only_dirs: { path: /etc/ssl } }
+        expect: "argument 'prometheus_read_only_dirs' is of type"
+      - name: an alert rules file list given as a dict
+        vars: { prometheus_alert_rules_files: { glob: "rules/*.yml" } }
+        expect: "argument 'prometheus_alert_rules_files' is of type"
+      - name: extra flags given as a list
+        vars: { prometheus_config_flags_extra: ["alertmanager.timeout=10s"] }
+        expect: "argument 'prometheus_config_flags_extra' is of type"
+      - name: a global section given as a number
+        vars: { prometheus_global: 15 }
+        expect: "argument 'prometheus_global' is of type"
+      - name: a web config given as a plain string
+        vars: { prometheus_web_config: tls }
+        expect: "argument 'prometheus_web_config' is of type"
+      - name: targets given as a list
+        vars: { prometheus_targets: [localhost] }
+        expect: "argument 'prometheus_targets' is of type"
+      - name: external labels given as a list
+        vars: { prometheus_external_labels: [environment] }
+        expect: "argument 'prometheus_external_labels' is of type"
+      - name: an alert rule that is not a dict
+        vars: { prometheus_alert_rules: ["HighLoad"] }
+        expect: "Elements value for option 'prometheus_alert_rules' is of type"
+      - name: an alertmanager entry that is not a dict
+        vars: { prometheus_alertmanager_config: [1] }
+        expect: "Elements value for option 'prometheus_alertmanager_config' is of type"
+      - name: a scrape config that is not a dict
+        vars: { prometheus_scrape_configs: ["prometheus"] }
+        expect: "Elements value for option 'prometheus_scrape_configs' is of type"
+      - name: a remote write entry that is not a dict
+        vars: { prometheus_remote_write: ["https://example.com/api/v1/write"] }
+        expect: "Elements value for option 'prometheus_remote_write' is of type"
+  tasks:
+    - name: "Scenario: Variables of the wrong type are rejected | apply the role"
+      ansible.builtin.include_tasks: expect-rejection.yml
+      loop: "{{ prometheus_test_rejected_cases }}"
+      loop_control:
+        loop_var: prometheus_test_case
+        label: "{{ prometheus_test_case.name }}"
+
+    - name: "Scenario: Variables of the wrong type are rejected | check the role changed nothing"
+      ansible.builtin.stat:
+        path: /etc/prometheus
+      register: prometheus_test_config_dir
+      failed_when: prometheus_test_config_dir.stat.exists
+
+    - name: "Scenario: Valid variables pass argument validation | apply the role with a listen address without a port"
+      ansible.builtin.include_tasks: expect-rejection.yml
+      vars:
+        prometheus_test_case:
+          name: a valid set of variables
+          vars:
+            prometheus_agent_mode: "yes"
+            prometheus_read_only_dirs: [/etc/ssl]
+            prometheus_alert_rules_files: []
+            prometheus_config_flags_extra: { alertmanager.timeout: 10s }
+            prometheus_web_listen_address: localhost
+          expect: Assertion failed
+          failed_task: Assert that listen address is valid

@@ -26,6 +26,18 @@ Feature: Reject an invalid OpenBao server configuration
       | two plugins with the same type and name         |
       | plugins without a managed configuration         |
       | an unknown plugin download behaviour            |
+      | a listener list given as a mapping              |
+      | plugins given as a mapping                      |
+      | storage options given as a list                 |
+      | telemetry options given as a string             |
+      | extra configuration given as a list             |
+      | a non-boolean config_manage                     |
+      | a non-boolean ui setting                        |
+      | a non-boolean service_manage                    |
+      | a non-integer number of init shares             |
+      | an unknown service state                        |
+      | an init threshold above the number of shares    |
+      | init without a managed service                  |
 
   Scenario Outline: A configuration OpenBao rejects is never installed
     Given the OpenBao package is installed with its packaged configuration

@@ -1,0 +1,7 @@
+---
+argument_specs:
+  main:
+    options:
+      demo_port:
+        type: int
+        default: 8080

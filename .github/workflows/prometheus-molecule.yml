@@ -24,12 +24,13 @@ permissions:
 
 jobs:
   molecule:
-    name: Molecule prometheus (${{ matrix.platform }})
+    name: Molecule prometheus (${{ matrix.scenario }}, ${{ matrix.platform }})
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
         platform: [rockylinux9, rockylinux10, ubuntu2204, ubuntu2404, debian12, debian13]
+        scenario: [default, invalid-config]
     env:
       PY_COLORS: "1"
       ANSIBLE_FORCE_COLOR: "1"
@@ -47,4 +48,4 @@ jobs:
         run: pip3 install ansible-core molecule 'molecule-plugins[docker]' docker
 
       - name: Run Molecule
-        run: molecule test
+        run: molecule test -s ${{ matrix.scenario }}

@@ -23,3 +23,5 @@ build_ignore:
   - .github
   - "**/molecule"
   - .gitignore
+  - tests
+  - CLAUDE.md

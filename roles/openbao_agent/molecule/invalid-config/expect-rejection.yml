@@ -14,6 +14,10 @@
         openbao_agent_approle_secret_id: "{{ openbao_agent_test_case.vars.secret_id | default('secret') }}"
         openbao_agent_templates: "{{ openbao_agent_test_case.vars.templates | default([]) }}"
         openbao_agent_token_sink_mode: "{{ openbao_agent_test_case.vars.sink_mode | default('0640') }}"
+        openbao_agent_log_level: "{{ openbao_agent_test_case.vars.log_level | default('info') }}"
+        openbao_agent_service_state: "{{ openbao_agent_test_case.vars.service_state | default('started') }}"
+        openbao_agent_tls_skip_verify: "{{ openbao_agent_test_case.vars.skip_verify | default(false) }}"
+        openbao_agent_retry_num_retries: "{{ openbao_agent_test_case.vars.retries | default(12) }}"
         openbao_agent_listener_address: "{{ openbao_agent_test_case.vars.listener | default('') }}"
 
     - name: Fail because the role accepted invalid input
