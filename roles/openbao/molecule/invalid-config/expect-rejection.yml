@@ -8,10 +8,14 @@
         name: openbao
       vars:
         openbao_config_manage: "{{ openbao_test_case.vars.config_manage | default(true) }}"
+        openbao_ui: "{{ openbao_test_case.vars.ui | default(true) }}"
         openbao_storage_type: "{{ openbao_test_case.vars.storage_type | default('pebbledb') }}"
+        openbao_storage_config: "{{ openbao_test_case.vars.storage_config | default({'path': '/opt/openbao/data'}) }}"
+        openbao_telemetry: "{{ openbao_test_case.vars.telemetry | default({}) }}"
         openbao_listeners: "{{ openbao_test_case.vars.listeners | default([{'address': '127.0.0.1:8200', 'tls_disable': true}]) }}"
         openbao_plugins: "{{ openbao_test_case.vars.plugins | default([]) }}"
         openbao_plugin_download_behavior: "{{ openbao_test_case.vars.download_behavior | default('fail') }}"
+        openbao_service_state: "{{ openbao_test_case.vars.service_state | default('started') }}"
         openbao_service_manage: "{{ openbao_test_case.vars.service_manage | default(false) }}"
         openbao_init: "{{ openbao_test_case.vars.init | default(false) }}"
         openbao_init_secret_shares: "{{ openbao_test_case.vars.init_shares | default(5) }}"

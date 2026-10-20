@@ -1,0 +1,13 @@
+---
+# Install Prometheus on hosts without internet access. With
+# prometheus_download_local the Ansible controller downloads the release
+# archive, verifies its checksum and copies it to the target.
+- name: Install Prometheus from the controller
+  hosts: monitoring
+  become: true
+  roles:
+    - role: digitalis.digitalis.prometheus
+      vars:
+        prometheus_version: "3.4.1"
+        prometheus_download_local: true
+        prometheus_local_cache_path: /var/tmp/prometheus-cache

@@ -10,7 +10,7 @@
 
 - name: Install OpenBao package
   ansible.builtin.package:
-    name: "{{ openbao_package_name }}"
+    name: "{{ _openbao_package }}"
     state: present
 
 - name: Configure OpenBao server

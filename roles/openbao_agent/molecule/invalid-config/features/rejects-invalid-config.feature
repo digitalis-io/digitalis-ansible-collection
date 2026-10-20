@@ -10,23 +10,26 @@ Feature: Reject invalid OpenBao Agent configuration
     And no agent configuration or service is written to the host
 
     Examples:
-      | invalid input                                |
-      | an empty server address                      |
-      | a server address without a scheme            |
-      | an unsupported auth method                   |
-      | AppRole without a secret ID                  |
-      | a template without a destination             |
-      | a template with a relative destination       |
-      | a template with both contents and source     |
-      | a template with an unknown key               |
-      | two templates with the same destination      |
-      | a template with non-octal permissions        |
-      | an exec timeout without a command            |
-      | a template rendered directly into /etc       |
-      | two src files with the same name             |
-      | a token sink mode that is not octal          |
-      | a listener on a non-loopback address         |
-      | a retry count that is not a number           |
-      | a TLS skip verify flag that is not a boolean |
-      | an unsupported log level                     |
-      | an unsupported service state                 |
+      | invalid input                             |
+      | an empty server address                   |
+      | a server address without a scheme         |
+      | an unsupported auth method                |
+      | AppRole without a secret ID               |
+      | a template without a destination          |
+      | a template with a relative destination    |
+      | a template with both contents and source  |
+      | a template with an unknown key            |
+      | two templates with the same destination   |
+      | a template with non-octal permissions     |
+      | an exec timeout without a command         |
+      | a template rendered directly into /etc    |
+      | two src files with the same name          |
+      | a token sink mode that is not octal       |
+      | a listener on a non-loopback address      |
+      | an unsupported log level                  |
+      | an unsupported service state              |
+      | a non-boolean TLS verification flag       |
+      | a non-numeric retry count                 |
+      | templates given as a string               |
+      | a template entry that is not a dictionary |
+      | a non-boolean error_on_missing_key        |

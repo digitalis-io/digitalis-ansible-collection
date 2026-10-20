@@ -43,6 +43,7 @@ ansible-galaxy collection install digitalis.digitalis
 ```yaml
 # playbook.yml
 - hosts: rabbitmq
+  become: true
   roles:
     - role: digitalis.digitalis.rabbitmq
       vars:
@@ -59,13 +60,16 @@ ansible-playbook -i inventory playbook.yml
 
 ```yaml
 - hosts: rabbitmq
+  become: true
   roles:
     - role: digitalis.digitalis.rabbitmq
       vars:
         rabbitmq_version: "4.2.5"
         rabbitmq_admin_user: admin
         rabbitmq_admin_password: "s3cur3p4ss"
-        rabbitmq_plugins: "rabbitmq_management,rabbitmq_prometheus"
+        rabbitmq_plugins:
+          - rabbitmq_management
+          - rabbitmq_prometheus
         rabbitmq_vhosts:
           - name: /myapp
             state: present
@@ -85,20 +89,20 @@ ansible-playbook -i inventory playbook.yml
 
 ```yaml
 - hosts: rabbitmq
+  become: true
   roles:
     - role: digitalis.digitalis.rabbitmq
       vars:
         rabbitmq_version: "4.2.5"
         rabbitmq_erlang_cookie: "CHANGE_THIS_TO_A_RANDOM_SECRET"
         rabbitmq_cluster_members:
-          - rabbit@node1.example.com
-          - rabbit@node2.example.com
-          - rabbit@node3.example.com
+          - node1
+          - node2
+          - node3
         rabbitmq_ssl:
           key: /etc/rabbitmq/server.key
           cert: /etc/rabbitmq/server.crt
           ca: /etc/rabbitmq/ca.pem
-          password: ""
           internode_encryption: true
         rabbitmq_admin_user: admin
         rabbitmq_admin_password: "s3cur3p4ss"
@@ -108,6 +112,7 @@ ansible-playbook -i inventory playbook.yml
 
 ```yaml
 - hosts: rabbitmq
+  become: true
   roles:
     - role: digitalis.digitalis.rabbitmq
       vars:
@@ -124,15 +129,16 @@ ansible-playbook -i inventory playbook.yml
             max_priority: 10
             vhost: /myapp
         rabbitmq_queue_defaults:
-                  x-queue-type: quorum
+          x-queue-type: quorum
           x-delivery-limit: 20
           x-quorum-initial-group-size: 3
-        ```
+```
 
 ### OAuth2/OIDC authentication
 
 ```yaml
 - hosts: rabbitmq
+  become: true
   roles:
     - role: digitalis.digitalis.rabbitmq
       vars:
@@ -153,6 +159,7 @@ When `rabbitmq_oauth2_issuer`, `rabbitmq_oauth2_client_id`, and `rabbitmq_oauth2
 
 ```yaml
 - hosts: rabbitmq
+  become: true
   roles:
     - role: digitalis.digitalis.rabbitmq
       vars:
@@ -163,182 +170,159 @@ When `rabbitmq_oauth2_issuer`, `rabbitmq_oauth2_client_id`, and `rabbitmq_oauth2
 
 ## Variable Reference
 
-### Core
+Generated from `meta/argument_specs.yml`; run `scripts/generate-docs.sh` to refresh.
 
-| Variable | Type | Default | Description |
-|----------|------|---------|-------------|
-| `rabbitmq_version` | string | `"4.2.5"` | RabbitMQ version to install |
-| `rabbitmq_daemon` | string | `rabbitmq-server` | systemd service name |
-| `rabbitmq_state` | string | `started` | Service state: `started`, `stopped` |
-| `rabbitmq_enabled` | bool | `true` | Enable service at boot |
-| `rabbitmq_log_level` | string | `info` | Log level: `debug`, `info`, `warning`, `error` |
-| `rabbitmq_listen_address` | string | `0.0.0.0` | Interface RabbitMQ listens on |
-| `rabbitmq_use_longname` | bool | `false` | Use fully-qualified node names |
-| `rabbitmq_plugins` | list | `[rabbitmq_management, rabbitmq_prometheus]` | Enabled plugins; must include `rabbitmq_management` |
+<!-- BEGIN_ANSIBLE_DOCS -->
 
-### Networking / Protocol Tuning
+| Variable | Type | Required | Default | Description |
+|----------|------|----------|---------|-------------|
+| `rabbitmq_version` | str | no | `4.2.5` | RabbitMQ version to install. |
+| `rabbitmq_admin_version` | str | no | `2.29.0` | Version of `rabbitmqadmin` installed for the backup job. |
+| `rabbitmq_daemon` | str | no | `rabbitmq-server` | Name of the systemd service. |
+| `rabbitmq_state` | str | no | `started` | State passed to the systemd module, for example `started` or `stopped`. |
+| `rabbitmq_enabled` | bool | no | `true` | Enable the service at boot. |
+| `rabbitmq_log_level` | str | no | `info` | Default log level, for example `debug`, `info`, `warning` or `error`. |
+| `rabbitmq_listen_address` | str | no | `0.0.0.0` | Interface the AMQP and Prometheus listeners bind to. |
+| `rabbitmq_nodename` | str | no | `rabbit@{{ ansible_hostname }}` | Node name used by `rabbitmqctl` and the community.rabbitmq modules. Override when `ansible_hostname` does not match the running node. |
+| `rabbitmq_use_longname` | bool | no | `false` | Use fully-qualified node names. |
+| `rabbitmq_domain` | str | no |  | Domain appended to cluster member names when `rabbitmq_use_longname` is enabled. Falls back to `internal`. |
+| `rabbitmq_plugins` | list of str | no | `["rabbitmq_management", "rabbitmq_prometheus"]` | Plugins to enable. Must include `rabbitmq_management`, which the queue and virtual host tasks use. |
+| `rabbitmq_amqp_port` | int | no | `5672` | AMQP port. |
+| `rabbitmq_amqp_ssl_port` | int | no | `5671` | AMQP TLS port, used when `rabbitmq_ssl` is set. |
+| `rabbitmq_management_port` | int | no | `15672` | Management UI and API port. |
+| `rabbitmq_management_ssl_port` | int | no | `15671` | Management UI and API TLS port, used when `rabbitmq_ssl` is set. |
+| `rabbitmq_management_listen_address` | str | no | `127.0.0.1` | Address the management listener binds to. Set to `0.0.0.0` to expose it externally. |
+| `rabbitmq_prometheus_port` | int | no | `15692` | Prometheus endpoint port. |
+| `rabbitmq_prometheus_ssl_port` | int | no | `15691` | Prometheus endpoint TLS port, used when `rabbitmq_ssl` is set. |
+| `rabbitmq_channel_max` | int | no | `128` | Maximum channels per connection. |
+| `rabbitmq_frame_max` | int | no | `131072` | Maximum frame size in bytes. |
+| `rabbitmq_initial_frame_max` | int | no | `4096` | Initial frame size in bytes negotiated on connect. |
+| `rabbitmq_file_limits` | int | no | `65535` | Open file limit (`LimitNOFILE`) of the systemd unit. |
+| `rabbitmq_quorum_commands_soft_limit` | int | no | `64` | Soft limit of in-flight quorum queue commands. |
+| `rabbitmq_disk_free_limit` | float | no |  | Free disk space limit relative to total RAM. Ignored when `rabbitmq_disk_free_absolute` is set. Falls back to `2.0`. |
+| `rabbitmq_disk_free_absolute` | str | no |  | Free disk space limit as an absolute value, for example `10GB`. Takes precedence over `rabbitmq_disk_free_limit`. |
+| `rabbitmq_password_hashing` | str | no |  | Password hashing module. Falls back to `rabbit_password_hashing_sha512`. |
+| `rabbitmq_queue_leader_locator` | str | no |  | Queue leader placement strategy. Falls back to `balanced`. |
+| `rabbitmq_load_definitions_file` | path | no |  | Path to a definitions file on the target host that RabbitMQ loads at boot. |
+| `rabbitmq_home` | path | no |  | Home directory of the `rabbitmq` user, where the Erlang cookie is written. Falls back to `/var/lib/rabbitmq`. |
+| `rabbitmq_apt_arch` | str | no | `{{ ansible_architecture \| replace('x86_64', 'amd64') \| replace('aarch64', 'arm64') }}` | APT architecture (Debian and Ubuntu only). |
+| `rabbitmq_apt_key_url` | str | no | `https://keys.openpgp.org/vks/v1/by-fingerprint/0A9AF2115F4687BD29803A206B73A36E6026DFCA` | URL of the RabbitMQ team OpenPGP key (Debian and Ubuntu only). |
+| `rabbitmq_apt_key_path` | path | no | `/usr/share/keyrings/com.rabbitmq.team.gpg` | Path the signing key is written to (Debian and Ubuntu only). |
+| `rabbitmq_apt_repos` | list of dict | no | `[{"type": "erlang", "url": "https://deb1.rabbitmq.com/rabbitmq-erlang"}, {"type": "erlang", "url": "https://deb2.rabbitmq.com/rabbitmq-erlang"}, {"type": "server", "url": "https://deb1.rabbitmq.com/rabbitmq-server"}, {"type": "server", "url": "https://deb2.rabbitmq.com/rabbitmq-server"}]` | APT repositories to configure (Debian and Ubuntu only). Defaults to the RabbitMQ Erlang and server mirrors, see `defaults/main.yml`. |
+| `rabbitmq_erlang_version_map` | dict | no | `{"bookworm": "1:27.3.4.9-1", "jammy": "1:27.3.4.9-1", "noble": "1:27.3.4.9-1", "resolute": "1:27.3.4.6+dfsg-1ubuntu0.2", "trixie": "1:27.3.4.9-1"}` | Maps the distribution codename to the pinned Erlang package version (Debian and Ubuntu only). See `defaults/main.yml` for the shipped map. |
+| `rabbitmq_erlang_version` | str | no | `{{ rabbitmq_erlang_version_map.get(ansible_distribution_release, '1:27.2-1') }}` | Erlang package version to install (Debian and Ubuntu only). |
+| `rabbitmq_erlang_packages` | list of str | no | `["erlang-asn1={{ rabbitmq_erlang_version }}", "erlang-base={{ rabbitmq_erlang_version }}", "erlang-crypto={{ rabbitmq_erlang_version }}", "erlang-eldap={{ rabbitmq_erlang_version }}", "erlang-ftp={{ rabbitmq_erlang_version }}", "erlang-inets={{ rabbitmq_erlang_version }}", "erlang-mnesia={{ rabbitmq_erlang_version }}", "erlang-os-mon={{ rabbitmq_erlang_version }}", "erlang-parsetools={{ rabbitmq_erlang_version }}", "erlang-public-key={{ rabbitmq_erlang_version }}", "erlang-runtime-tools={{ rabbitmq_erlang_version }}", "erlang-snmp={{ rabbitmq_erlang_version }}", "erlang-ssl={{ rabbitmq_erlang_version }}", "erlang-syntax-tools={{ rabbitmq_erlang_version }}", "erlang-tftp={{ rabbitmq_erlang_version }}", "erlang-tools={{ rabbitmq_erlang_version }}", "erlang-xmerl={{ rabbitmq_erlang_version }}"]` | Erlang packages to install (Debian and Ubuntu only). Defaults to the 17 `erlang-*` packages RabbitMQ requires, pinned to `rabbitmq_erlang_version`. |
+| `rabbitmq_erlang_cookie` | str | no | `""` | Shared secret for cluster node authentication. Required for clusters and not written when empty. |
+| `rabbitmq_cluster_members` | list of str | no | `[]` | Cluster node names, for example `node1`. Empty creates a standalone node. |
+| `rabbitmq_cluster_name` | str | no |  | Cluster name, for example `rabbit.example.com`. |
+| `rabbitmq_cluster_tags` | dict | no | `{}` | Key/value tags applied to the cluster. |
+| `rabbitmq_cluster_partition_handling` | str | no |  | Network partition handling strategy. Falls back to `pause_minority`. One of `pause_minority`, `pause_if_all_down`, `autoheal`, `ignore`. |
+| `rabbitmq_cluster_partition_handling_pause_if_all_down` | str | no |  | Recovery strategy used when `rabbitmq_cluster_partition_handling` is `pause_if_all_down`. Falls back to `autoheal`. |
+| `rabbitmq_ssl` | dict | no |  | TLS configuration. When defined, TLS is enabled and the plain-text AMQP listener is disabled. |
+| `rabbitmq_ssl_ciphers` | list of str | no | `["ECDHE-ECDSA-AES256-GCM-SHA384", "ECDHE-RSA-AES256-GCM-SHA384", "ECDH-ECDSA-AES256-GCM-SHA384", "ECDH-RSA-AES256-GCM-SHA384", "DHE-RSA-AES256-GCM-SHA384", "DHE-DSS-AES256-GCM-SHA384", "ECDHE-ECDSA-AES128-GCM-SHA256", "ECDHE-RSA-AES128-GCM-SHA256", "ECDH-ECDSA-AES128-GCM-SHA256", "ECDH-RSA-AES128-GCM-SHA256", "DHE-RSA-AES128-GCM-SHA256", "DHE-DSS-AES128-GCM-SHA256"]` | Allowed TLS cipher suites. Defaults to twelve AES-GCM suites, see `defaults/main.yml`. |
+| `rabbitmq_oauth2_issuer` | str | no |  | OIDC issuer URL. Setting it enables the OAuth2 backend and requires `rabbitmq_oauth2_client_id` and `rabbitmq_oauth2_client_secret`. |
+| `rabbitmq_oauth2_client_id` | str | no |  | OAuth2 client ID. |
+| `rabbitmq_oauth2_client_secret` | str | no |  | OAuth2 client secret. |
+| `rabbitmq_oauth2_jwks_url` | str | no |  | JWKS endpoint URL. Discovered from the issuer when unset. |
+| `rabbitmq_oauth2_token_url` | str | no |  | Token endpoint URL. Falls back to `<issuer>/protocol/openid-connect/token`. |
+| `rabbitmq_oauth2_resource_server_id` | str | no | `rabbitmq` | Resource server identifier. |
+| `rabbitmq_oauth2_scopes` | str | no | `openid profile rabbitmq.tag:administrator` | Space-separated scopes requested by the management UI. |
+| `rabbitmq_oauth2_verify_peer` | bool | no | `true` | Verify the identity provider TLS certificate. |
+| `rabbitmq_oauth2_ca_cert` | path | no |  | CA certificate used to verify the identity provider. |
+| `rabbitmq_erl_ssl_path` | str | no | `/usr/lib/erlang/lib/ssl-11.2.6/ebin` | Fallback Erlang SSL library path written to `rabbitmq-env.conf` when TLS is enabled and the path cannot be detected. |
+| `rabbitmq_admin_user` | str | no | `admin` | Name of the administrator account created by the role. |
+| `rabbitmq_admin_password` | str | no | `""` | Password of the administrator account. Required, the role fails when empty. |
+| `rabbitmq_admin_permissions` | list of dict | no | `[{"configure_priv": ".*", "read_priv": ".*", "vhost": "/", "write_priv": ".*"}]` | Permissions granted to the administrator account. |
+| `rabbitmq_users` | list of dict | no | `[{"name": "guest", "state": "absent"}]` | Users to manage. The default removes the built-in `guest` account. |
+| `rabbitmq_vhosts` | list of dict | no | `[]` | Virtual hosts to manage. |
+| `rabbitmq_queue_defaults` | dict | no | `{"x-delivery-limit": 20, "x-queue-type": "quorum", "x-quorum-initial-group-size": 3}` | Arguments merged into every queue in `rabbitmq_queues`. |
+| `rabbitmq_queues` | list of dict | no | `[]` | Queues to manage. Requires the management plugin. |
+| `rabbitmq_use_haproxy` | bool | no | `false` | Install and configure HAProxy in front of RabbitMQ. |
+| `rabbitmq_haproxy_amqp_port` | int | no | `5670` | HAProxy frontend port for AMQP. |
+| `rabbitmq_haproxy_amqp_ssl_port` | int | no | `5673` | HAProxy frontend port for AMQP over TLS. |
+| `rabbitmq_haproxy_mgmt_port` | int | no | `15670` | HAProxy frontend port for the management UI. |
+| `rabbitmq_haproxy_mgmt_ssl_port` | int | no | `15673` | HAProxy frontend port for the management UI over TLS. |
+| `rabbitmq_haproxy_stats_port` | int | no | `1936` | HAProxy statistics port. |
+| `rabbitmq_haproxy_stats_address` | str | no | `127.0.0.1` | Address the HAProxy statistics page binds to. |
+| `rabbitmq_haproxy_log_address` | str | no | `127.0.0.1` | Address HAProxy sends logs to. |
+| `rabbitmq_haproxy_group` | str | no | `rabbitmq` | Inventory group whose hosts become HAProxy backends. |
+| `rabbitmq_backup_cronjob` | dict | no | `{"directory": "/var/backups/rabbitmq", "enabled": false, "retention_days": 7, "schedule": "0 0 * * *"}` | Scheduled export of the cluster definitions with `rabbitmqadmin`. When overriding, set every key, because the defaults below apply only to the whole dict. |
+| `rabbitmq_sysctl` | dict | no | `{"fs.file-max": 200000, "net.core.rmem_max": 16777216, "net.core.somaxconn": 4096, "net.core.wmem_max": 16777216, "net.ipv4.ip_local_port_range": "1024 65535", "net.ipv4.tcp_keepalive_intvl": 10, "net.ipv4.tcp_keepalive_probes": 3, "net.ipv4.tcp_keepalive_time": 60}` | Kernel parameters applied with `ansible.posix.sysctl`. Skipped on Docker hosts. |
 
-| Variable | Type | Default | Description |
-|----------|------|---------|-------------|
-| `rabbitmq_channel_max` | int | `128` | Maximum channels per connection |
-| `rabbitmq_frame_max` | int | `131072` | Maximum frame size in bytes |
-| `rabbitmq_initial_frame_max` | int | `4096` | Initial frame size negotiated on connect |
+### `rabbitmq_apt_repos` options
 
-### Installation (Debian/Ubuntu only)
+| Variable | Type | Required | Default | Description |
+|----------|------|----------|---------|-------------|
+| `url` | str | yes |  | Repository URL. |
+| `type` | str | no |  | Repository kind. One of `erlang`, `server`. |
 
-| Variable | Type | Default | Description |
-|----------|------|---------|-------------|
-| `rabbitmq_apt_arch` | string | auto-detected | Apt architecture (`amd64`, `arm64`). Derived from `ansible_architecture`. |
-| `rabbitmq_apt_key_url` | string | RabbitMQ key URL | URL to the RabbitMQ team OpenPGP key |
-| `rabbitmq_apt_key_path` | string | `/usr/share/keyrings/com.rabbitmq.team.gpg` | Path to write the signing key |
-| `rabbitmq_apt_repos` | list | RabbitMQ Erlang + server repos | List of APT repos (`url`, `type`) |
-| `rabbitmq_erlang_version_map` | dict | per-distro versions | Maps codename → pinned Erlang version string |
-| `rabbitmq_erlang_version` | string | auto from map | Erlang version installed (derived from `rabbitmq_erlang_version_map`) |
-| `rabbitmq_erlang_packages` | list | 17 erlang-* packages | Erlang packages to install |
+### `rabbitmq_ssl` options
 
-### Clustering
+| Variable | Type | Required | Default | Description |
+|----------|------|----------|---------|-------------|
+| `key` | path | yes |  | Path to the private key on the target host. |
+| `cert` | path | yes |  | Path to the certificate on the target host. |
+| `ca` | path | yes |  | Path to the CA certificate on the target host. |
+| `verify` | str | no | `verify_none` | Peer verification mode for AMQP clients. One of `verify_none`, `verify_peer`. |
+| `versions` | raw | no | `tlsv1.2` | TLS protocol version or list of versions. |
+| `internode_encryption` | bool | no | `false` | Encrypt inter-node cluster traffic. |
+| `password` | str | no |  | Private key password. Accepted for compatibility, currently unused. |
 
-| Variable | Type | Default | Description |
-|----------|------|---------|-------------|
-| `rabbitmq_erlang_cookie` | string | `""` | Shared secret for cluster node authentication. Required for clusters; not written when empty. |
-| `rabbitmq_cluster_members` | list | `[]` | List of cluster nodes, e.g. `rabbit@node1.example.com`. Empty = standalone. |
-| `rabbitmq_cluster_name` | string | unset | Optional cluster name (e.g. `rabbit.example.com`) |
-| `rabbitmq_cluster_tags` | dict | `{}` | Key/value tags applied to cluster nodes |
+### `rabbitmq_admin_permissions` options
 
-### TLS / SSL
+| Variable | Type | Required | Default | Description |
+|----------|------|----------|---------|-------------|
+| `vhost` | str | yes |  | Virtual host the permissions apply to. |
+| `configure_priv` | str | no | `.*` | Configure permission regular expression. |
+| `read_priv` | str | no | `.*` | Read permission regular expression. |
+| `write_priv` | str | no | `.*` | Write permission regular expression. |
 
-| Variable | Type | Default | Description |
-|----------|------|---------|-------------|
-| `rabbitmq_ssl` | dict | unset | TLS configuration. When defined, enables TLS. |
-| `rabbitmq_ssl.key` | string | — | Path to private key, e.g. `/etc/rabbitmq/server.key` |
-| `rabbitmq_ssl.cert` | string | — | Path to certificate, e.g. `/etc/rabbitmq/server.crt` |
-| `rabbitmq_ssl.ca` | string | — | Path to CA certificate, e.g. `/etc/rabbitmq/ca.pem` |
-| `rabbitmq_ssl.password` | string | `""` | Private key password (empty = no password) |
-| `rabbitmq_ssl.internode_encryption` | bool | `false` | Enable TLS for inter-node cluster traffic |
-| `rabbitmq_ssl_ciphers` | list | 12 GCM ciphers | Allowed TLS cipher suites |
+### `rabbitmq_users` options
 
-### Admin User
+| Variable | Type | Required | Default | Description |
+|----------|------|----------|---------|-------------|
+| `name` | str | yes |  | Username. |
+| `password` | str | no |  | Password. Required when `state` is `present`. |
+| `state` | str | no | `present` | Create or remove the user. One of `present`, `absent`. |
+| `vhost` | str | no | `/` | Virtual host to grant permissions on. |
+| `configure_priv` | str | no | `.*` | Configure permission regular expression. |
+| `read_priv` | str | no | `.*` | Read permission regular expression. |
+| `write_priv` | str | no | `.*` | Write permission regular expression. |
+| `tags` | str | no |  | RabbitMQ user tags as a comma-separated string, for example `administrator,monitoring`. Lists are not supported. |
+| `update_password` | str | no | `on_create` | Whether to reset the password of an existing user. One of `always`, `on_create`. |
 
-| Variable | Type | Default | Description |
-|----------|------|---------|-------------|
-| `rabbitmq_admin_user` | string | `admin` | Admin username created by the role |
-| `rabbitmq_admin_password` | string | `""` | Admin password. Required; the role fails if unset. |
-| `rabbitmq_admin_permissions` | list | full access on `/` | Permissions granted to the admin user |
+### `rabbitmq_vhosts` options
 
-### Users
+| Variable | Type | Required | Default | Description |
+|----------|------|----------|---------|-------------|
+| `name` | str | yes |  | Virtual host name, for example `/app`. |
+| `state` | str | no | `present` | Create or remove the virtual host. One of `present`, `absent`. |
+| `tracing` | bool | no | `false` | Enable message tracing. |
 
-```yaml
-rabbitmq_users:
-  - name: guest          # required — RabbitMQ username
-    state: absent        # present (default) or absent
-  - name: appuser
-    password: "appp4ss"  # required when state: present
-    vhost: /myapp        # vhost to grant permissions on (default: /)
-    configure_priv: ".*" # configure permission regex (default: .*)
-    read_priv: ".*"      # read permission regex (default: .*)
-    write_priv: ".*"     # write permission regex (default: .*)
-    tags: monitoring     # RabbitMQ tags (e.g. administrator, monitoring)
-```
+### `rabbitmq_queues` options
 
-The default removes the built-in `guest` account:
+| Variable | Type | Required | Default | Description |
+|----------|------|----------|---------|-------------|
+| `name` | str | yes |  | Queue name. |
+| `state` | str | no | `present` | Create or remove the queue. One of `present`, `absent`. |
+| `vhost` | str | no | `/` | Virtual host of the queue. |
+| `create_dlq` | bool | no | `false` | Also create a `<name>-dlq` dead-letter queue and route rejected messages to it. |
+| `durable` | bool | no |  | Keep the queue across broker restarts. |
+| `max_length` | int | no |  | Maximum number of messages. |
+| `max_priority` | int | no |  | Maximum priority, 0 to 255, enabling a priority queue. |
+| `leader` | str | no |  | Node the API calls are sent to. Defaults to the management listen address, or the inventory hostname when that is `0.0.0.0`. |
+| `arguments` | dict | no |  | Extra queue arguments merged over `rabbitmq_queue_defaults`. |
+| `dlq_arguments` | dict | no |  | Extra arguments for the `<name>-dlq` queue, merged over `rabbitmq_queue_defaults`. |
 
-```yaml
-rabbitmq_users:
-  - name: guest
-    state: absent
-```
+### `rabbitmq_backup_cronjob` options
 
-### Virtual Hosts
-
-```yaml
-rabbitmq_vhosts:
-  - name: /myapp         # vhost path (required)
-    state: present       # present (default) or absent
-    tracing: false       # enable message tracing (default: false)
-```
-
-| Variable | Type | Default | Description |
-|----------|------|---------|-------------|
-| `rabbitmq_vhosts` | list | `[]` | Virtual hosts to create or remove |
-
-### Queues
-
-| Variable | Type | Default | Description |
-|----------|------|---------|-------------|
-| `rabbitmq_queues` | list | `[]` | Queues to create. Empty = no queues created. |
-| `rabbitmq_queue_defaults` | dict | quorum queue settings | Default arguments merged into every queue |
-
-```yaml
-rabbitmq_queues:
-  - name: orders          # queue name (required)
-    create_dlq: true      # also create orders-dlq (default: false)
-    durable: true         # survive broker restart (default: omit)
-    max_length: 100000    # max messages (default: omit)
-    max_priority: 10      # enable priority queue 0-255 (default: omit)
-    vhost: /myapp         # vhost (default: /)
-    leader: node1.fqdn    # node to create on (default: ansible_fqdn)
-    state: present        # present or absent (default: present)
-    arguments: {}         # extra x-arguments merged with rabbitmq_queue_defaults
-```
-
-Default queue arguments applied to all queues:
-
-```yaml
-rabbitmq_queue_defaults:
-  x-queue-type: quorum
-  x-delivery-limit: 20
-  x-quorum-initial-group-size: 3
-```
-
-### OAuth2 / OIDC
-
-Setting `rabbitmq_oauth2_issuer` enables the OAuth2 backend; `client_id` and `client_secret` are required. TLS verification is on by default (`rabbitmq_oauth2_verify_peer`). Optional: `rabbitmq_oauth2_token_url`, `rabbitmq_oauth2_jwks_url`, `rabbitmq_oauth2_ca_cert`, `rabbitmq_oauth2_scopes`, `rabbitmq_oauth2_resource_server_id`.
-
-| Variable | Type | Default | Description |
-|----------|------|---------|-------------|
-| `rabbitmq_oauth2_issuer` | string | unset | OIDC issuer URL, e.g. `https://keycloak.example.com/realms/myrealm` |
-| `rabbitmq_oauth2_client_id` | string | unset | OAuth2 client ID |
-| `rabbitmq_oauth2_client_secret` | string | unset | OAuth2 client secret |
-
-### HAProxy
-
-| Variable | Type | Default | Description |
-|----------|------|---------|-------------|
-| `rabbitmq_use_haproxy` | bool | `false` | Install and configure HAProxy in front of RabbitMQ |
-
-### Backups
-
-| Variable | Type | Default | Description |
-|----------|------|---------|-------------|
-| `rabbitmq_backup_cronjob.enabled` | bool | `false` | Enable automated backup cron job |
-| `rabbitmq_backup_cronjob.schedule` | string | `0 0 * * *` | Cron schedule (daily at midnight) |
-| `rabbitmq_backup_cronjob.directory` | string | `/var/backups/rabbitmq` | Backup directory (mode 0700) |
-| `rabbitmq_backup_cronjob.retention_days` | int | `7` | Days to keep definition exports |
-
-```yaml
-rabbitmq_backup_cronjob:
-  enabled: true
-  schedule: "0 2 * * *"
-  command: "/usr/local/bin/rabbitmqadmin --username={{ rabbitmq_admin_user }} --password={{ rabbitmq_admin_password }} -H localhost -P 15672 export /tmp/cluster.backup-$(date +'%s').json"
-```
-
-### Sysctl Tuning
-
-| Variable | Type | Default | Description |
-|----------|------|---------|-------------|
-| `rabbitmq_sysctl` | dict | network/fd tuning | Kernel parameters applied via `ansible.posix.sysctl`. Skipped in Docker. |
-
-```yaml
-rabbitmq_sysctl:
-  fs.file-max: 200000
-  net.core.rmem_max: 16777216
-  net.core.wmem_max: 16777216
-  net.core.somaxconn: 4096
-  net.ipv4.tcp_keepalive_time: 60
-  net.ipv4.tcp_keepalive_intvl: 10
-  net.ipv4.tcp_keepalive_probes: 3
-  net.ipv4.ip_local_port_range: "1024 65535"
-```
+| Variable | Type | Required | Default | Description |
+|----------|------|----------|---------|-------------|
+| `enabled` | bool | no | `false` | Install the backup job. |
+| `schedule` | str | no | `0 0 * * *` | Cron schedule. |
+| `directory` | path | no | `/var/backups/rabbitmq` | Directory the exports are written to (mode `0700`). |
+| `retention_days` | int | no | `7` | Days to keep exports. |
+<!-- END_ANSIBLE_DOCS -->
 
 ## Tags
 

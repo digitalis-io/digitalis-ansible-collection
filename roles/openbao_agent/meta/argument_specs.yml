@@ -5,271 +5,219 @@ argument_specs:
     description:
       - Installs OpenBao, configures OpenBao Agent with auto-auth and file
         templates, and runs it as a systemd service.
-      - Changes to credentials, copied template files, the agent configuration
-        or the systemd unit restart the agent, which re-renders every template
-        on start. No restart is issued when O(openbao_agent_service_state) is
-        V(stopped).
     author: Digitalis.io
     options:
       openbao_agent_install:
         type: bool
         default: true
         description:
-          - Install the OpenBao package, which provides the C(bao) binary, by
-            calling the C(openbao) role from this collection.
-          - Set to V(false) when C(bao) is installed by other means. When V(true),
-            C(openbao_version) and the C(openbao) repository variables are
-            passed through unchanged. The C(openbao) server service is never
-            started or changed by this role.
+          - "Install the OpenBao package, which provides the C(bao) binary, by including the C(openbao) role of this collection with C(openbao_service_manage) set to C(false), so no OpenBao server service is managed."
+          - "Set to C(false) when C(bao) is already installed (at C(/usr/bin/bao), the path used by the systemd unit). C(openbao_version) and the OpenBao repository options are passed through to the C(openbao) role."
       openbao_agent_user:
         type: str
         default: openbao-agent
         description:
-          - System user the agent runs as. Created by the role without a home
-            directory or login shell.
-          - Kept separate from the C(openbao) server user so the agent and its
-            exec commands cannot read server storage on hosts running both.
-          - Changing it does not remove the previous user.
+          - "System account the agent runs as. Created without a home directory and with C(/bin/false) as shell."
+          - "It owns the data directory, the credential files and any template destination directory the role creates. Keep it separate from the C(openbao) server user so the agent and its C(exec_command) commands cannot read server storage. Changing it rewrites the systemd unit and restarts the agent."
       openbao_agent_group:
         type: str
         default: openbao-agent
         description:
-          - System group the agent runs as. Owns the configuration directory
-            and the data directory.
-          - Set it to the group of the service consuming the rendered files so
-            that service can read them and their parent directories.
+          - "System group the agent runs as. Created by the role and used as group owner of the configuration directory, the C(agent.hcl) file, copied templates, the data directory and credential files."
+          - "Changing it rewrites the systemd unit and restarts the agent."
       openbao_agent_config_dir:
         type: path
         default: /etc/openbao-agent
         description:
-          - Directory for C(agent.hcl), the AppRole or token credential files
-            and the C(templates) subdirectory holding copied C(src) files.
-          - Owned by root, group O(openbao_agent_group), mode V(0750).
-          - Changing it rewrites the configuration and restarts the agent.
-            The old directory is not removed, so its credential files stay
-            on the host; delete them manually when the directory moves.
+          - "Directory for C(agent.hcl), the credential files (C(role_id), C(secret_id) or C(token)) and the C(templates/) subdirectory that receives templates given with C(src). Created as C(root:<group>) with mode C(0750)."
+          - "It is passed to C(bao agent -config=) in the systemd unit, so changing it rewrites the unit and restarts the agent. The old directory is not removed."
       openbao_agent_data_dir:
         type: path
         default: /var/lib/openbao-agent
         description:
-          - Agent working directory holding the PID file and, by default, the
-            token sink. Owned by O(openbao_agent_user), mode V(0750).
-          - It is the only path the systemd unit can write to besides the
-            token sink and template destination directories.
+          - "Working directory of the agent. Holds the PID file C(agent.pid) and, by default, the token sink. Created owned by the agent user with mode C(0750)."
+          - "It is the only path the systemd unit makes writable by default (C(ProtectSystem=strict) with C(ReadWritePaths)). Changing it rewrites the unit and the configuration and restarts the agent."
       openbao_agent_service_name:
         type: str
         default: openbao-agent
         description:
-          - Name of the systemd unit, without the C(.service) suffix. The unit
-            file is written to C(/etc/systemd/system/<name>.service).
-          - Changing it creates a new unit. The previous unit is not stopped
-            or removed.
+          - "Name of the systemd unit, without the C(.service) suffix. The role writes C(/etc/systemd/system/<name>.service) and manages that unit."
+          - "Changing it creates a new unit and leaves the previous one in place; stop and remove it separately."
       openbao_agent_service_enabled:
         type: bool
         default: true
-        description: Start the agent service at boot.
+        description:
+          - "Whether the unit is enabled to start at boot. Applied on every run with C(systemd_service), together with C(daemon_reload)."
       openbao_agent_service_state:
         type: str
         default: started
         choices: [started, stopped, restarted]
         description:
-          - Desired state of the agent service.
-          - V(started) starts the service if it is not running. Configuration
-            changes still restart it through a handler.
-          - V(stopped) stops the service and suppresses handler restarts.
-          - V(restarted) restarts the service on every run, so the play is
-            never idempotent.
+          - "State the role sets on the service at the end of each run."
+          - "C(started) keeps it running; C(stopped) stops it; C(restarted) restarts it on every run, so the result is never idempotent. Changes to the unit, C(agent.hcl), credential files or copied templates restart the agent through a handler, which is skipped when this is C(stopped)."
       openbao_agent_address:
         type: str
         default: ""
         description:
-          - URL of the OpenBao server, for example V(https://openbao.example.com:8200).
-          - Required. Must start with C(http://) or C(https://); an empty value
-            or a missing scheme fails validation before any change is made.
+          - "URL of the OpenBao server the agent connects to, for example C(https://openbao.example.com:8200). Required."
+          - "Must start with C(http://) or C(https://). Written to the C(address) setting of the C(vault) block in C(agent.hcl). The role fails before changing the host when it is empty or has no scheme."
       openbao_agent_ca_cert:
         type: str
         default: ""
         description:
-          - Path on the managed host to a PEM CA bundle used to verify the
-            server certificate. The role does not copy the file.
-          - Empty uses the system trust store.
+          - "Path, on the managed host, to a PEM CA bundle used to verify the server certificate. The role does not copy the file; it must already exist and be readable by the agent user."
+          - "Empty omits C(ca_cert) from the configuration, so the system trust store is used."
       openbao_agent_tls_server_name:
         type: str
         default: ""
         description:
-          - Server name sent for SNI and used to verify the server certificate,
-            for example when connecting by IP address or through a load balancer.
-          - Empty uses the host name from O(openbao_agent_address).
+          - "Server name sent as SNI and used to verify the server certificate, for when it differs from the host name in C(openbao_agent_address). Empty omits the setting."
       openbao_agent_tls_skip_verify:
         type: bool
         default: false
         description:
-          - Disable verification of the server certificate. Exposes the agent
-            and its credentials to man-in-the-middle attacks.
-          - Do not use in production; prefer O(openbao_agent_ca_cert).
+          - "Disable verification of the server TLS certificate. Written as C(tls_skip_verify) in the C(vault) block."
+          - "Do not use in production: the agent then sends its credentials to any server that answers. Prefer C(openbao_agent_ca_cert)."
       openbao_agent_retry_num_retries:
         type: int
         default: 12
         description:
-          - How many times the agent retries a failed request to the server
-            before giving up.
-          - Once retries are exhausted template rendering fails, which stops
-            the agent when O(openbao_agent_template_exit_on_retry_failure) is V(true).
+          - "Number of times the agent retries a failed request to the server before giving up. Written as C(num_retries) in the C(retry) block of C(agent.hcl)."
+          - "Applies to requests made by the agent, including template rendering. See C(openbao_agent_template_exit_on_retry_failure) for what happens when the retries run out."
       openbao_agent_log_level:
         type: str
         default: info
         choices: [trace, debug, info, warn, error]
         description:
-          - Agent log verbosity, written to the systemd journal.
-          - C(trace) and C(debug) are very verbose; use them only while
-            troubleshooting.
+          - "Verbosity of the agent log, written as C(log_level) in C(agent.hcl). Output goes to the systemd journal."
+          - "The value is validated against the listed choices by the argument spec before the role runs. Changing it restarts the agent."
       openbao_agent_auth_method:
         type: str
         default: approle
         choices: [approle, token_file]
         description:
-          - Auto-auth method the agent uses to obtain a token.
-          - V(approle) needs O(openbao_agent_approle_role_id) and
-            O(openbao_agent_approle_secret_id). V(token_file) needs
-            O(openbao_agent_token). The credentials for the other method are
-            ignored.
-          - Changing the method rewrites the configuration and restarts the agent.
+          - "Auto-auth method the agent uses to obtain a token. C(approle) needs C(openbao_agent_approle_role_id) and C(openbao_agent_approle_secret_id); C(token_file) needs C(openbao_agent_token)."
+          - "Any other value is rejected before the host is changed. The credentials for the method not selected are ignored and not written. Changing the method rewrites C(agent.hcl) and restarts the agent."
       openbao_agent_auth_mount_path:
         type: str
         default: "auth/{{ openbao_agent_auth_method if openbao_agent_auth_method != 'token_file' else 'token' }}"
-        description:
-          - Mount path of the auth method on the server, for example
-            V(auth/approle-apps) when AppRole is mounted at a custom path.
-          - Defaults to V(auth/approle) for the approle method. Only used by the
-            approle method; the token_file method ignores it, so the
-            V(auth/token) default it would resolve to has no effect.
+        description: Mount path of the auth method. Defaults to C(auth/approle) or C(auth/token).
       openbao_agent_approle_role_id:
         type: str
         default: ""
         no_log: true
         description:
-          - AppRole role ID. Required, non-empty, for the approle method.
-          - Written to C(<config_dir>/role_id) with mode V(0600) owned by
-            O(openbao_agent_user). A change restarts the agent. Keep the value
-            in ansible-vault or a secrets manager.
+          - "AppRole role ID. Required, and must not be empty, when C(openbao_agent_auth_method) is C(approle); ignored otherwise."
+          - "Written to C(<config_dir>/role_id) with mode C(0600), owned by the agent user. A change restarts the agent. Keep the value in ansible-vault or a secrets manager."
       openbao_agent_approle_secret_id:
         type: str
         default: ""
         no_log: true
         description:
-          - AppRole secret ID. Required, non-empty, for the approle method.
-          - Written to C(<config_dir>/secret_id) with mode V(0600) owned by
-            O(openbao_agent_user). The agent does not delete the file after
-            reading it. A change restarts the agent. Keep the value in
-            ansible-vault or a secrets manager.
+          - "AppRole secret ID. Required, and must not be empty, when C(openbao_agent_auth_method) is C(approle); ignored otherwise."
+          - "Written to C(<config_dir>/secret_id) with mode C(0600), owned by the agent user. The agent does not delete the file after reading it, so the same secret ID is reused on restart; it must not be single-use or expire before the next run. A change restarts the agent. Keep the value in ansible-vault or a secrets manager."
       openbao_agent_token:
         type: str
         default: ""
         no_log: true
         description:
-          - Token the agent uses with the token_file method. Required,
-            non-empty, for that method.
-          - Written to C(<config_dir>/token) with mode V(0600) owned by
-            O(openbao_agent_user). A change restarts the agent. Keep the value
-            in ansible-vault or a secrets manager.
+          - "Token the agent reads with the C(token_file) method. Required, and must not be empty, when C(openbao_agent_auth_method) is C(token_file); ignored otherwise."
+          - "Written to C(<config_dir>/token) with mode C(0600), owned by the agent user. A change restarts the agent. Keep the value in ansible-vault or a secrets manager."
       openbao_agent_token_sink_enabled:
         type: bool
         default: true
         description:
-          - Write the auto-auth token to the file at O(openbao_agent_token_sink_path)
-            so local processes can use it.
-          - Anything that can read the sink holds a valid token; restrict access
-            with O(openbao_agent_token_sink_mode) and O(openbao_agent_group).
+          - "Write the auto-auth token to a file so local processes can use it. The sink is configured as a C(file) sink with the path and mode given by C(openbao_agent_token_sink_path) and C(openbao_agent_token_sink_mode)."
+          - "Anyone who can read the file can act with the agent token, so restrict access with the mode and the directory permissions."
       openbao_agent_token_sink_path:
         type: path
         default: "{{ openbao_agent_data_dir }}/agent-token"
         description:
-          - Absolute path of the token sink file.
-          - The agent writes it at runtime, so a path outside
-            O(openbao_agent_data_dir) must be in a directory that already
-            exists and is writable by O(openbao_agent_user). The systemd unit
-            adds that directory to its writable paths.
-          - Defaults to C(<data_dir>/agent-token). Ignored when
-            O(openbao_agent_token_sink_enabled) is V(false).
+          - "Path of the token sink file. Defaults to C(<data_dir>/agent-token)."
+          - "The role does not create the parent directory unless it is the data directory. When it is elsewhere, create it before the run and make it writable by the agent user; the systemd unit adds it to C(ReadWritePaths) with a leading C(-), so a missing directory is not an error for systemd but the agent then cannot write the sink. Ignored when the sink is disabled."
       openbao_agent_token_sink_mode:
         type: str
         default: "0640"
         description:
-          - File mode of the token sink as a four digit octal string, for
-            example V(0600). Quote it so YAML does not read it as a number.
-          - Anything else fails validation.
+          - "File mode of the token sink as a four digit octal string, for example C(0640). Quote it so YAML does not read it as a number."
+          - "Anything that is not C(0) followed by three octal digits is rejected before the host is changed. Ignored when the sink is disabled."
       openbao_agent_listener_address:
         type: str
         default: ""
-        description:
-          - Address for a local API proxy listener that injects the agent token
-            into requests, for example V(127.0.0.1:8100). Enabling it also
-            turns on the agent cache.
-          - Empty disables the listener. The listener has no TLS, so only
-            loopback addresses are accepted unless
-            O(openbao_agent_listener_allow_nonlocal) is V(true).
+        description: Address for a local API proxy listener, for example C(127.0.0.1:8100). Empty disables it.
       openbao_agent_listener_allow_nonlocal:
         type: bool
         default: false
-        description:
-          - Accept a non-loopback O(openbao_agent_listener_address).
-          - Any client that can reach the listener is served with the agent
-            token and no TLS. Only enable it on a trusted, firewalled network.
+        description: Allow a non-loopback listener address. The listener has no TLS and uses the agent token.
       openbao_agent_template_default_perms:
         type: str
         default: "0600"
         description:
-          - File mode, as a four digit octal string, for rendered files whose
-            template item does not set C(perms).
-          - Rendered files are owned by O(openbao_agent_user) and
-            O(openbao_agent_group), so use V(0640) for a consuming service in
-            that group.
+          - "File mode, as a four digit octal string such as C(0600), applied to rendered files of templates that do not set C(perms). Quote it so YAML does not read it as a number."
+          - "Anything that is not C(0) followed by three octal digits is rejected before the host is changed."
       openbao_agent_template_exit_on_retry_failure:
         type: bool
         default: true
         description:
-          - Exit the agent when rendering a template fails after the retries in
-            O(openbao_agent_retry_num_retries) are used up.
-          - With V(true), systemd restarts the agent after five seconds, so a
-            server outage surfaces as restarts instead of stale files. With
-            V(false) the agent keeps running and leaves the last rendered file.
+          - "Written as C(exit_on_retry_failure) in the C(template_config) block. When C(true), the agent exits if rendering a template fails after the configured retries (see C(openbao_agent_retry_num_retries)), and systemd restarts it after 5 seconds. When C(false), the agent does not exit on this failure."
       openbao_agent_template_static_secret_render_interval:
         type: str
         default: 5m
         description:
-          - How often secrets without a lease, such as KV, are fetched again
-            and the templates re-rendered. Go duration string, for example
-            V(30s), V(5m) or V(1h).
-          - Leased secrets are re-rendered when they renew. A shorter interval
-            picks up rotated secrets sooner at the cost of more server requests.
-            A changed file triggers the item's C(exec_command).
+          - "How often the agent re-renders templates that use static (non-leased) secrets, as a duration string such as C(5m) or C(30s). Written as C(static_secret_render_interval) in the C(template_config) block."
+          - "Lower values pick up changed secrets sooner at the cost of more requests to the server."
       openbao_agent_templates:
         type: list
         elements: dict
         default: []
-        description:
-          - Templates the agent renders to files. Each item needs C(destination)
-            and exactly one of C(contents), C(src) or C(source).
-          - Optional keys are C(perms), C(error_on_missing_key), C(backup),
-            C(create_dest_dirs), C(left_delimiter), C(right_delimiter),
-            C(wait_min), C(wait_max), C(exec_command) and C(exec_timeout).
-            Unknown keys fail validation. See the README for each key.
-          - Tag inline C(contents) with C(!unsafe) so Ansible leaves the
-            double curly brace markers for the agent.
-          - Destinations must be absolute, unique and not directly in C(/),
-            C(/etc), C(/usr), C(/var) or C(/boot). Missing destination
-            directories are created for O(openbao_agent_user); existing ones
-            are left unchanged.
-          - C(src) files are copied from the controller to C(<config_dir>/templates/)
-            and must have unique base names. Adding, removing or changing an
-            item rewrites the configuration and restarts the agent.
-          - Items that set C(exec_command) run it after a render changes the file.
+        description: Templates to render. Each item needs C(destination) and exactly one of C(contents), C(src) or C(source).
+        options:
+          destination:
+            type: path
+            required: true
+            description: Absolute path of the rendered file.
+          contents:
+            type: str
+            description: Inline template. Tag it C(!unsafe) so Ansible does not evaluate the agent template markers (double curly braces) and leaves them for the agent.
+          src:
+            type: path
+            description: Controller file copied to C(<config_dir>/templates/).
+          source:
+            type: path
+            description: Template file already on the host.
+          perms:
+            type: str
+            description: File mode as a quoted four digit octal string such as C("0640"); an unquoted value is read as a decimal number and rejected. Falls back to C(openbao_agent_template_default_perms).
+          error_on_missing_key:
+            type: bool
+            description: Fail rendering on missing keys.
+          backup:
+            type: bool
+            description: Keep the previous render.
+          create_dest_dirs:
+            type: bool
+            description: Let the agent create parent directories.
+          left_delimiter:
+            type: str
+            description: Left template delimiter.
+          right_delimiter:
+            type: str
+            description: Right template delimiter.
+          wait_min:
+            type: str
+            description: Minimum render quiescence timer, for example C(5s).
+          wait_max:
+            type: str
+            description: Maximum render quiescence timer, for example C(10s).
+          exec_command:
+            type: raw
+            description: Command run after a changed render, as a string or a list of arguments.
+          exec_timeout:
+            type: str
+            description: Command timeout. Requires C(exec_command). Falls back to C(30s).
       openbao_agent_extra_config:
         type: str
         default: ""
         description:
-          - Raw HCL appended unchanged to the end of C(agent.hcl) for options
-            the role does not expose.
-          - The role does not validate it. Invalid HCL, or a block that
-            duplicates one the role writes, stops the agent from starting
-            after the restart.
+          - "Raw HCL appended unchanged at the end of C(agent.hcl), after the generated blocks. Use it for agent settings the role does not expose."
+          - "The content is not validated by the role; invalid HCL or a block that duplicates a generated one makes the agent fail to start. A change restarts the agent."

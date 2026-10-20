@@ -1,0 +1,32 @@
+<!-- BEGIN_ANSIBLE_DOCS -->
+{%- for entrypoint in argument_specs.keys() %}
+{%- if argument_specs | length > 1 %}
+
+### Entrypoint: {{ entrypoint }}
+{%- endif %}
+{%- for path, options in entrypoint_options[entrypoint] %}
+{%- if path | length > 1 %}
+
+### `{{ path[1:] | join('.') }}` options
+{%- endif %}
+
+| Variable | Type | Required | Default | Description |
+|----------|------|----------|---------|-------------|
+{%- for name, d in options.items() %}
+{%- set type = d.type | default('str') %}
+{%- if type == 'list' %}{% set type = 'list of ' ~ d.elements | default('str') %}{% endif %}
+{%- if d.default is defined %}
+{%- if d.default is boolean %}{% set default = d.default | string | lower %}
+{%- elif d.default is mapping and not d.default %}{% set default = '{}' %}
+{%- elif d.default is sequence and d.default is not string and not d.default %}{% set default = '[]' %}
+{%- elif d.default == '' %}{% set default = '""' %}
+{%- elif d.default is mapping or (d.default is sequence and d.default is not string) %}{% set default = d.default | tojson | replace('\\u0027', "'") | replace('\\u003c', '<') | replace('\\u003e', '>') | replace('\\u0026', '&') %}
+{%- else %}{% set default = d.display_default %}
+{%- endif %}
+{%- else %}{% set default = '' %}
+{%- endif %}
+| `{{ name }}` | {{ type }} | {{ d.display_required }} | {% if default != '' %}`{{ default | replace('|', '\\|') }}`{% endif %} | {{ d.display_description | ansible_doc_markup | replace('|', '\\|') }}{% if d.choices is defined %} One of {% for c in d.choices %}`{{ c }}`{{ ', ' if not loop.last }}{% endfor %}.{% endif %} |
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+<!-- END_ANSIBLE_DOCS -->

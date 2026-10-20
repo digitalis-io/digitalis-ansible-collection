@@ -9,7 +9,7 @@
 
 - name: Repo | Ensure APT keyring directory exists
   ansible.builtin.file:
-    path: "{{ openbao_apt_keyring | dirname }}"
+    path: "{{ _openbao_apt_keyring | dirname }}"
     state: directory
     owner: root
     group: root
@@ -18,7 +18,7 @@
 - name: Repo | Download OpenBao signing key
   ansible.builtin.get_url:
     url: "{{ openbao_gpg_key_url }}"
-    dest: "{{ openbao_apt_keyring }}"
+    dest: "{{ _openbao_apt_keyring }}"
     owner: root
     group: root
     mode: "0644"

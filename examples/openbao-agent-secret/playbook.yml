@@ -1,0 +1,36 @@
+---
+# Install and initialise an OpenBao server, then run OpenBao Agent on the
+# application hosts to render a secret to a file.
+#
+# The AppRole credentials are read from the environment of the controller:
+#   export OPENBAO_ROLE_ID=...
+#   export OPENBAO_SECRET_ID=...
+# After the first play, unseal each server node (bao operator unseal), move the
+# keys in /root/openbao-init.json to a secrets manager, then create the AppRole
+# and the secret/myapp secret before running the second play.
+- name: Install and initialise the OpenBao server
+  hosts: openbao
+  become: true
+  roles:
+    - role: digitalis.digitalis.openbao
+      vars:
+        openbao_service_manage: true
+        openbao_config_manage: true
+        openbao_api_addr: "https://{{ inventory_hostname }}:8200"
+        openbao_init: true
+
+- name: Render the application secret with OpenBao Agent
+  hosts: app_servers
+  become: true
+  roles:
+    - role: digitalis.digitalis.openbao_agent
+      vars:
+        openbao_agent_address: "https://{{ groups['openbao'][0] }}:8200"
+        # CA that signed the server certificate, already present on the host.
+        openbao_agent_ca_cert: /etc/pki/tls/certs/openbao-ca.pem
+        openbao_agent_approle_role_id: "{{ lookup('ansible.builtin.env', 'OPENBAO_ROLE_ID') }}"
+        openbao_agent_approle_secret_id: "{{ lookup('ansible.builtin.env', 'OPENBAO_SECRET_ID') }}"
+        openbao_agent_templates:
+          - destination: /etc/myapp/db.env
+            contents: !unsafe |
+              {{ with secret "secret/data/myapp" }}DB_PASSWORD={{ .Data.data.password }}{{ end }}
