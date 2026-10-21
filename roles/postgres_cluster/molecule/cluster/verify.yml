@@ -13,7 +13,7 @@
     # Scenario: The nodes form one cluster
     - name: List the cluster members
       ansible.builtin.command: "{{ patronictl }} list --format json"
-      register: members_raw
+      register: postgres_cluster_verify_members_raw
       changed_when: false
       run_once: true
       delegate_to: "{{ first }}"
@@ -28,7 +28,7 @@
           - replicas | map(attribute='Replay Lag') | map('int') | max < 1048576
         quiet: true
       vars:
-        members: "{{ members_raw.stdout | from_json }}"
+        members: "{{ postgres_cluster_verify_members_raw.stdout | from_json }}"
         replicas: "{{ members | rejectattr('Role', 'equalto', 'Leader') | list }}"
       run_once: true
 
@@ -40,19 +40,19 @@
         cat <&3 | sed -n 's/^Mode: //p'
       args:
         executable: /bin/bash
-      register: zk_mode
+      register: postgres_cluster_verify_zk_mode
       changed_when: false
 
     - name: Assert ZooKeeper has one leader and two followers
       ansible.builtin.assert:
         that:
-          - (nodes | map('extract', hostvars, ['zk_mode', 'stdout']) | list | sort) == ['follower', 'follower', 'leader']
+          - (nodes | map('extract', hostvars, ['postgres_cluster_verify_zk_mode', 'stdout']) | list | sort) == ['follower', 'follower', 'leader']
         quiet: true
       run_once: true
 
     - name: Find the leader
       ansible.builtin.set_fact:
-        leader: "{{ (members_raw.stdout | from_json | selectattr('Role', 'equalto', 'Leader') | first).Member }}"
+        postgres_cluster_verify_leader: "{{ (postgres_cluster_verify_members_raw.stdout | from_json | selectattr('Role', 'equalto', 'Leader') | first).Member }}"
       run_once: true
 
     - name: Count the standbys streaming from the leader
@@ -60,14 +60,14 @@
         {{ psql }} -c "SELECT count(*), string_agg(DISTINCT sync_state, ',') FROM pg_stat_replication WHERE state = 'streaming'"
       become: true
       become_user: postgres
-      register: repl
+      register: postgres_cluster_verify_repl
       changed_when: false
       run_once: true
-      delegate_to: "{{ leader }}"
+      delegate_to: "{{ postgres_cluster_verify_leader }}"
 
     - name: Assert two standbys stream with quorum synchronous replication
       ansible.builtin.assert:
-        that: repl.stdout | trim in ['2|quorum']
+        that: postgres_cluster_verify_repl.stdout | trim in ['2|quorum']
         quiet: true
       run_once: true
 
@@ -86,9 +86,9 @@
         {{ psql }} -d appdb -c "SELECT count(*) FROM verify_rows WHERE id = 1"
       become: true
       become_user: postgres
-      register: row_count
+      register: postgres_cluster_verify_row_count
       changed_when: false
-      until: row_count.stdout | trim == '1'
+      until: postgres_cluster_verify_row_count.stdout | trim == '1'
       retries: 12
       delay: 5
 
@@ -97,12 +97,12 @@
         {{ psql }} -h {{ ansible_facts['default_ipv4']['address'] }} -p 5001 -U app -d appdb -c "SELECT pg_is_in_recovery()"
       environment:
         PGPASSWORD: molecule-app-secret
-      register: read_port
+      register: postgres_cluster_verify_read_port
       changed_when: false
 
     - name: Assert the read port reached a replica
       ansible.builtin.assert:
-        that: read_port.stdout | trim == 't'
+        that: postgres_cluster_verify_read_port.stdout | trim == 't'
         quiet: true
 
     # Scenario: Standby backups run over SSH
@@ -110,7 +110,7 @@
       ansible.builtin.command: pgbackrest --stanza=main_{{ postgres_cluster_version }} backup --type=incr --log-level-console=detail
       become: true
       become_user: postgres
-      register: standby_backup
+      register: postgres_cluster_verify_standby_backup
       changed_when: false
       run_once: true
       delegate_to: "{{ first }}"
@@ -119,7 +119,7 @@
       ansible.builtin.command: pgbackrest --stanza=main_{{ postgres_cluster_version }} info --output=json
       become: true
       become_user: postgres
-      register: backup_info
+      register: postgres_cluster_verify_backup_info
       changed_when: false
       run_once: true
       delegate_to: "{{ first }}"
@@ -127,8 +127,8 @@
     - name: Assert the incremental backup was recorded and used a standby
       ansible.builtin.assert:
         that:
-          - (backup_info.stdout | from_json)[0].backup | selectattr('type', 'equalto', 'incr') | list | length >= 1
-          - "'standby' in standby_backup.stdout | lower or 'standby' in standby_backup.stderr | lower"
+          - (postgres_cluster_verify_backup_info.stdout | from_json)[0].backup | selectattr('type', 'equalto', 'incr') | list | length >= 1
+          - "'standby' in postgres_cluster_verify_standby_backup.stdout | lower or 'standby' in postgres_cluster_verify_standby_backup.stderr | lower"
         quiet: true
       run_once: true
 
@@ -138,29 +138,29 @@
       block:
         - name: Pick the candidate
           ansible.builtin.set_fact:
-            candidate: "{{ nodes | difference([leader]) | first }}"
+            postgres_cluster_verify_candidate: "{{ nodes | difference([postgres_cluster_verify_leader]) | first }}"
 
         - name: Switch over to the candidate
-          ansible.builtin.command: "{{ patronictl }} switchover --leader {{ leader }} --candidate {{ candidate }} --force"
+          ansible.builtin.command: "{{ patronictl }} switchover --leader {{ postgres_cluster_verify_leader }} --candidate {{ postgres_cluster_verify_candidate }} --force"
           delegate_to: "{{ first }}"
           changed_when: true
 
         - name: Wait for the candidate to lead
           ansible.builtin.uri:
-            url: "http://{{ hostvars[candidate].ansible_facts['default_ipv4']['address'] }}:8008/primary"
-          register: new_leader
-          until: new_leader.status == 200
+            url: "http://{{ hostvars[postgres_cluster_verify_candidate].ansible_facts['default_ipv4']['address'] }}:8008/primary"
+          register: postgres_cluster_verify_new_leader
+          until: postgres_cluster_verify_new_leader.status == 200
           retries: 24
           delay: 5
 
         - name: Write a row through the HAProxy write port of another node
           ansible.builtin.command: >-
-            {{ psql }} -h {{ hostvars[leader].ansible_facts['default_ipv4']['address'] }} -p 5000 -U app -d appdb
+            {{ psql }} -h {{ hostvars[postgres_cluster_verify_leader].ansible_facts['default_ipv4']['address'] }} -p 5000 -U app -d appdb
             -c "INSERT INTO verify_rows VALUES (2, 'after-switchover'); SELECT pg_is_in_recovery()"
           environment:
             PGPASSWORD: molecule-app-secret
-          register: write_after
-          until: write_after.rc == 0
+          register: postgres_cluster_verify_write_after
+          until: postgres_cluster_verify_write_after.rc == 0
           retries: 12
           delay: 5
           changed_when: false
@@ -170,26 +170,26 @@
             {{ psql }} -d appdb -c "SELECT string_agg(id::text, ',' ORDER BY id), pg_is_in_recovery() FROM verify_rows"
           become: true
           become_user: postgres
-          delegate_to: "{{ candidate }}"
-          register: after_switch
+          delegate_to: "{{ postgres_cluster_verify_candidate }}"
+          register: postgres_cluster_verify_after_switch
           changed_when: false
-          failed_when: after_switch.stdout | trim != '1,2|f'
+          failed_when: postgres_cluster_verify_after_switch.stdout | trim != '1,2|f'
 
       always:
         - name: Switch the leadership back
-          ansible.builtin.command: "{{ patronictl }} switchover --leader {{ candidate }} --candidate {{ leader }} --force"
+          ansible.builtin.command: "{{ patronictl }} switchover --leader {{ postgres_cluster_verify_candidate }} --candidate {{ postgres_cluster_verify_leader }} --force"
           delegate_to: "{{ first }}"
           changed_when: true
-          when: candidate is defined
+          when: postgres_cluster_verify_candidate is defined
 
         - name: Wait for the original leader to lead again
           ansible.builtin.uri:
-            url: "http://{{ hostvars[leader].ansible_facts['default_ipv4']['address'] }}:8008/primary"
-          register: old_leader
-          until: old_leader.status == 200
+            url: "http://{{ hostvars[postgres_cluster_verify_leader].ansible_facts['default_ipv4']['address'] }}:8008/primary"
+          register: postgres_cluster_verify_old_leader
+          until: postgres_cluster_verify_old_leader.status == 200
           retries: 24
           delay: 5
-          when: candidate is defined
+          when: postgres_cluster_verify_candidate is defined
 
     # Scenario: The cluster survives the loss of the leader
     - name: Lose the leader and always bring it back
@@ -197,40 +197,40 @@
       block:
         - name: Pick the surviving node to talk to
           ansible.builtin.set_fact:
-            survivor: "{{ nodes | difference([leader]) | first }}"
+            postgres_cluster_verify_survivor: "{{ nodes | difference([postgres_cluster_verify_leader]) | first }}"
 
         - name: Stop Patroni on the leader
           ansible.builtin.systemd:
             name: patroni
             state: stopped
-          delegate_to: "{{ leader }}"
+          delegate_to: "{{ postgres_cluster_verify_leader }}"
 
         - name: Wait for another node to lead
           ansible.builtin.command: "{{ patronictl }} list --format json"
-          delegate_to: "{{ survivor }}"
-          register: election
+          delegate_to: "{{ postgres_cluster_verify_survivor }}"
+          register: postgres_cluster_verify_election
           changed_when: false
           until: >-
-            (election.stdout | from_json | selectattr('Role', 'equalto', 'Leader') | selectattr('State', 'equalto', 'running')
-            | map(attribute='Member') | list | difference([leader]) | length) == 1
+            (postgres_cluster_verify_election.stdout | from_json | selectattr('Role', 'equalto', 'Leader') | selectattr('State', 'equalto', 'running')
+            | map(attribute='Member') | list | difference([postgres_cluster_verify_leader]) | length) == 1
           retries: 24
           delay: 5
 
         - name: Read the rows from the new leader
           ansible.builtin.command: >-
-            {{ psql }} -h {{ hostvars[survivor].ansible_facts['default_ipv4']['address'] }} -p 5000 -U app -d appdb
+            {{ psql }} -h {{ hostvars[postgres_cluster_verify_survivor].ansible_facts['default_ipv4']['address'] }} -p 5000 -U app -d appdb
             -c "SELECT string_agg(id::text, ',' ORDER BY id) FROM verify_rows"
           environment:
             PGPASSWORD: molecule-app-secret
-          register: after_failover
-          until: after_failover.rc == 0
+          register: postgres_cluster_verify_after_failover
+          until: postgres_cluster_verify_after_failover.rc == 0
           retries: 12
           delay: 5
           changed_when: false
 
         - name: Assert every committed row survived
           ansible.builtin.assert:
-            that: after_failover.stdout | trim == '1,2'
+            that: postgres_cluster_verify_after_failover.stdout | trim == '1,2'
             quiet: true
 
       always:
@@ -238,20 +238,20 @@
           ansible.builtin.systemd:
             name: patroni
             state: started
-          delegate_to: "{{ leader }}"
+          delegate_to: "{{ postgres_cluster_verify_leader }}"
 
         - name: Wait for the old leader to rejoin as a replica
           ansible.builtin.uri:
-            url: "http://{{ hostvars[leader].ansible_facts['default_ipv4']['address'] }}:8008/replica"
-          register: rejoined
-          until: rejoined.status == 200
+            url: "http://{{ hostvars[postgres_cluster_verify_leader].ansible_facts['default_ipv4']['address'] }}:8008/replica"
+          register: postgres_cluster_verify_rejoined
+          until: postgres_cluster_verify_rejoined.status == 200
           retries: 36
           delay: 5
 
         - name: Drop the test table
           ansible.builtin.command: >-
-            {{ psql }} -h {{ hostvars[survivor].ansible_facts['default_ipv4']['address'] }} -p 5000 -U app -d appdb -c "DROP TABLE IF EXISTS verify_rows"
+            {{ psql }} -h {{ hostvars[postgres_cluster_verify_survivor].ansible_facts['default_ipv4']['address'] }} -p 5000 -U app -d appdb -c "DROP TABLE IF EXISTS verify_rows"
           environment:
             PGPASSWORD: molecule-app-secret
           changed_when: true
-          when: survivor is defined
+          when: postgres_cluster_verify_survivor is defined
