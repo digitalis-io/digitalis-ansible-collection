@@ -1,0 +1,257 @@
+---
+- name: Verify
+  hosts: all
+  gather_facts: true
+  vars:
+    postgres_cluster_version: 16
+    pg_bin_dir: "{{ '/usr/pgsql-' ~ postgres_cluster_version ~ '/bin' if ansible_facts['os_family'] == 'RedHat' else '/usr/lib/postgresql/' ~ postgres_cluster_version ~ '/bin' }}"
+    psql: "{{ pg_bin_dir }}/psql -X -A -t -v ON_ERROR_STOP=1"
+    patronictl: /usr/local/bin/patronictl -c /etc/patroni.yml
+    nodes: "{{ groups['postgres_cluster'] }}"
+    first: "{{ groups['postgres_cluster'][0] }}"
+  tasks:
+    # Scenario: The nodes form one cluster
+    - name: List the cluster members
+      ansible.builtin.command: "{{ patronictl }} list --format json"
+      register: members_raw
+      changed_when: false
+      run_once: true
+      delegate_to: "{{ first }}"
+
+    - name: Assert one leader and two replicas, all running without lag
+      ansible.builtin.assert:
+        that:
+          - members | length == 3
+          - members | selectattr('Role', 'equalto', 'Leader') | map(attribute='State') | list == ['running']
+          - replicas | map(attribute='Role') | unique | list == ['Replica']
+          - replicas | map(attribute='State') | unique | list == ['streaming']
+          - replicas | map(attribute='Replay Lag') | map('int') | max < 1048576
+        quiet: true
+      vars:
+        members: "{{ members_raw.stdout | from_json }}"
+        replicas: "{{ members | rejectattr('Role', 'equalto', 'Leader') | list }}"
+      run_once: true
+
+    - name: Ask each ZooKeeper node for its mode
+      ansible.builtin.shell: |
+        set -o pipefail
+        exec 3<>/dev/tcp/{{ ansible_facts['default_ipv4']['address'] }}/2181
+        echo srvr >&3
+        cat <&3 | sed -n 's/^Mode: //p'
+      args:
+        executable: /bin/bash
+      register: zk_mode
+      changed_when: false
+
+    - name: Assert ZooKeeper has one leader and two followers
+      ansible.builtin.assert:
+        that:
+          - (nodes | map('extract', hostvars, ['zk_mode', 'stdout']) | list | sort) == ['follower', 'follower', 'leader']
+        quiet: true
+      run_once: true
+
+    - name: Find the leader
+      ansible.builtin.set_fact:
+        leader: "{{ (members_raw.stdout | from_json | selectattr('Role', 'equalto', 'Leader') | first).Member }}"
+      run_once: true
+
+    - name: Count the standbys streaming from the leader
+      ansible.builtin.command: >-
+        {{ psql }} -c "SELECT count(*), string_agg(DISTINCT sync_state, ',') FROM pg_stat_replication WHERE state = 'streaming'"
+      become: true
+      become_user: postgres
+      register: repl
+      changed_when: false
+      run_once: true
+      delegate_to: "{{ leader }}"
+
+    - name: Assert two standbys stream with quorum synchronous replication
+      ansible.builtin.assert:
+        that: repl.stdout | trim in ['2|quorum']
+        quiet: true
+      run_once: true
+
+    # Scenario: Data written through HAProxy reaches every node
+    - name: Write a row through the HAProxy write port
+      ansible.builtin.command: >-
+        {{ psql }} -h {{ hostvars[first].ansible_facts['default_ipv4']['address'] }} -p 5000 -U app -d appdb
+        -c "CREATE TABLE IF NOT EXISTS verify_rows (id int PRIMARY KEY, note text); INSERT INTO verify_rows VALUES (1, 'before-switchover') ON CONFLICT DO NOTHING"
+      environment:
+        PGPASSWORD: molecule-app-secret
+      changed_when: false
+      run_once: true
+
+    - name: Read the row on every node
+      ansible.builtin.command: >-
+        {{ psql }} -d appdb -c "SELECT count(*) FROM verify_rows WHERE id = 1"
+      become: true
+      become_user: postgres
+      register: row_count
+      changed_when: false
+      until: row_count.stdout | trim == '1'
+      retries: 12
+      delay: 5
+
+    - name: Connect through the HAProxy read port
+      ansible.builtin.command: >-
+        {{ psql }} -h {{ ansible_facts['default_ipv4']['address'] }} -p 5001 -U app -d appdb -c "SELECT pg_is_in_recovery()"
+      environment:
+        PGPASSWORD: molecule-app-secret
+      register: read_port
+      changed_when: false
+
+    - name: Assert the read port reached a replica
+      ansible.builtin.assert:
+        that: read_port.stdout | trim == 't'
+        quiet: true
+
+    # Scenario: Standby backups run over SSH
+    - name: Take an incremental backup that is allowed to use a standby
+      ansible.builtin.command: pgbackrest --stanza=main_{{ postgres_cluster_version }} backup --type=incr --log-level-console=detail
+      become: true
+      become_user: postgres
+      register: standby_backup
+      changed_when: false
+      run_once: true
+      delegate_to: "{{ first }}"
+
+    - name: Read the backup list
+      ansible.builtin.command: pgbackrest --stanza=main_{{ postgres_cluster_version }} info --output=json
+      become: true
+      become_user: postgres
+      register: backup_info
+      changed_when: false
+      run_once: true
+      delegate_to: "{{ first }}"
+
+    - name: Assert the incremental backup was recorded and used a standby
+      ansible.builtin.assert:
+        that:
+          - (backup_info.stdout | from_json)[0].backup | selectattr('type', 'equalto', 'incr') | list | length >= 1
+          - "'standby' in standby_backup.stdout | lower or 'standby' in standby_backup.stderr | lower"
+        quiet: true
+      run_once: true
+
+    # Scenario: A planned switchover moves the leader
+    - name: Switch the leadership and always switch it back
+      run_once: true
+      block:
+        - name: Pick the candidate
+          ansible.builtin.set_fact:
+            candidate: "{{ nodes | difference([leader]) | first }}"
+
+        - name: Switch over to the candidate
+          ansible.builtin.command: "{{ patronictl }} switchover --leader {{ leader }} --candidate {{ candidate }} --force"
+          delegate_to: "{{ first }}"
+          changed_when: true
+
+        - name: Wait for the candidate to lead
+          ansible.builtin.uri:
+            url: "http://{{ hostvars[candidate].ansible_facts['default_ipv4']['address'] }}:8008/primary"
+          register: new_leader
+          until: new_leader.status == 200
+          retries: 24
+          delay: 5
+
+        - name: Write a row through the HAProxy write port of another node
+          ansible.builtin.command: >-
+            {{ psql }} -h {{ hostvars[leader].ansible_facts['default_ipv4']['address'] }} -p 5000 -U app -d appdb
+            -c "INSERT INTO verify_rows VALUES (2, 'after-switchover'); SELECT pg_is_in_recovery()"
+          environment:
+            PGPASSWORD: molecule-app-secret
+          register: write_after
+          until: write_after.rc == 0
+          retries: 12
+          delay: 5
+          changed_when: false
+
+        - name: Assert the write landed on the new leader and no row was lost
+          ansible.builtin.command: >-
+            {{ psql }} -d appdb -c "SELECT string_agg(id::text, ',' ORDER BY id), pg_is_in_recovery() FROM verify_rows"
+          become: true
+          become_user: postgres
+          delegate_to: "{{ candidate }}"
+          register: after_switch
+          changed_when: false
+          failed_when: after_switch.stdout | trim != '1,2|f'
+
+      always:
+        - name: Switch the leadership back
+          ansible.builtin.command: "{{ patronictl }} switchover --leader {{ candidate }} --candidate {{ leader }} --force"
+          delegate_to: "{{ first }}"
+          changed_when: true
+          when: candidate is defined
+
+        - name: Wait for the original leader to lead again
+          ansible.builtin.uri:
+            url: "http://{{ hostvars[leader].ansible_facts['default_ipv4']['address'] }}:8008/primary"
+          register: old_leader
+          until: old_leader.status == 200
+          retries: 24
+          delay: 5
+          when: candidate is defined
+
+    # Scenario: The cluster survives the loss of the leader
+    - name: Lose the leader and always bring it back
+      run_once: true
+      block:
+        - name: Pick the surviving node to talk to
+          ansible.builtin.set_fact:
+            survivor: "{{ nodes | difference([leader]) | first }}"
+
+        - name: Stop Patroni on the leader
+          ansible.builtin.systemd:
+            name: patroni
+            state: stopped
+          delegate_to: "{{ leader }}"
+
+        - name: Wait for another node to lead
+          ansible.builtin.command: "{{ patronictl }} list --format json"
+          delegate_to: "{{ survivor }}"
+          register: election
+          changed_when: false
+          until: >-
+            (election.stdout | from_json | selectattr('Role', 'equalto', 'Leader') | selectattr('State', 'equalto', 'running')
+            | map(attribute='Member') | list | difference([leader]) | length) == 1
+          retries: 24
+          delay: 5
+
+        - name: Read the rows from the new leader
+          ansible.builtin.command: >-
+            {{ psql }} -h {{ hostvars[survivor].ansible_facts['default_ipv4']['address'] }} -p 5000 -U app -d appdb
+            -c "SELECT string_agg(id::text, ',' ORDER BY id) FROM verify_rows"
+          environment:
+            PGPASSWORD: molecule-app-secret
+          register: after_failover
+          until: after_failover.rc == 0
+          retries: 12
+          delay: 5
+          changed_when: false
+
+        - name: Assert every committed row survived
+          ansible.builtin.assert:
+            that: after_failover.stdout | trim == '1,2'
+            quiet: true
+
+      always:
+        - name: Start Patroni on the old leader again
+          ansible.builtin.systemd:
+            name: patroni
+            state: started
+          delegate_to: "{{ leader }}"
+
+        - name: Wait for the old leader to rejoin as a replica
+          ansible.builtin.uri:
+            url: "http://{{ hostvars[leader].ansible_facts['default_ipv4']['address'] }}:8008/replica"
+          register: rejoined
+          until: rejoined.status == 200
+          retries: 36
+          delay: 5
+
+        - name: Drop the test table
+          ansible.builtin.command: >-
+            {{ psql }} -h {{ hostvars[survivor].ansible_facts['default_ipv4']['address'] }} -p 5000 -U app -d appdb -c "DROP TABLE IF EXISTS verify_rows"
+          environment:
+            PGPASSWORD: molecule-app-secret
+          changed_when: true
+          when: survivor is defined

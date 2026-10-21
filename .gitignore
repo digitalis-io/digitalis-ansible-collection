@@ -4,4 +4,9 @@
 .cache
 .DS_Store
 .ansible
+*.key
+*.pem
+.env
+certs/
+*vault*pass*
 results-*.txt

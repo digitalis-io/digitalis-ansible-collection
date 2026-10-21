@@ -1,0 +1,42 @@
+---
+- name: Install the CIFS client
+  ansible.builtin.package:
+    name: "{{ _postgres_cluster_cifs_packages }}"
+    state: present
+
+- name: Get the kernel version
+  ansible.builtin.command: uname -r
+  register: _postgres_cluster_kernel
+  changed_when: false
+
+- name: Install the extra kernel modules needed for iocharset=utf8
+  ansible.builtin.package:
+    name: "{{ 'linux-modules-extra-' if ansible_facts['os_family'] == 'Debian' else 'kernel-modules-extra-' }}{{ _postgres_cluster_kernel.stdout }}"
+    state: present
+  when: ansible_facts['distribution'] in ['Ubuntu', 'RedHat', 'Rocky', 'AlmaLinux', 'CentOS']
+
+- name: Create the CIFS credentials file
+  ansible.builtin.copy:
+    dest: "{{ _postgres_cluster_cifs_credentials }}"
+    content: |
+      username={{ postgres_cluster_pgbackrest_cifs_username }}
+      password={{ postgres_cluster_pgbackrest_cifs_password }}
+    owner: root
+    group: root
+    mode: "0600"
+  diff: false
+  no_log: true
+
+- name: Create the mount point
+  ansible.builtin.file:
+    path: "{{ postgres_cluster_pgbackrest_repo_path }}"
+    state: directory
+    mode: "0755"
+
+- name: Mount the backup share
+  ansible.posix.mount:
+    path: "{{ postgres_cluster_pgbackrest_repo_path }}"
+    src: "{{ postgres_cluster_pgbackrest_cifs_src }}"
+    fstype: cifs
+    opts: "iocharset=utf8,rw,credentials={{ _postgres_cluster_cifs_credentials }},uid={{ postgres_cluster_user }},gid={{ postgres_cluster_group }},file_mode=0660,dir_mode=0770,seal"
+    state: mounted

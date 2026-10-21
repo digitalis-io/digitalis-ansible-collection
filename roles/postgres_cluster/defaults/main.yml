@@ -1,0 +1,126 @@
+---
+# Cluster layout
+postgres_cluster_version: 16
+postgres_cluster_name: postgres
+postgres_cluster_nodes: "{{ groups['postgres_cluster'] | default([]) }}"
+postgres_cluster_primary: "{{ postgres_cluster_nodes | first | default('') }}"
+postgres_cluster_address: "{{ ansible_facts['default_ipv4']['address'] }}"
+
+# Accounts and paths
+postgres_cluster_user: postgres
+postgres_cluster_group: postgres
+postgres_cluster_user_uid: ""
+postgres_cluster_user_groups: []
+postgres_cluster_data_directory: /pg_data
+postgres_cluster_wal_directory: ""
+postgres_cluster_unix_socket_directory: /var/run/postgresql
+postgres_cluster_log_directory: /var/log/postgresql
+postgres_cluster_locale: en_US.UTF-8
+postgres_cluster_port: 5432
+postgres_cluster_auth_method: scram-sha-256
+
+# Secrets (required, no defaults)
+# postgres_cluster_superuser_password
+# postgres_cluster_replication_password
+# postgres_cluster_rewind_password
+
+# PostgreSQL configuration
+postgres_cluster_parameters: {}
+postgres_cluster_hba: []
+postgres_cluster_synchronous_replication: true
+
+# Patroni
+postgres_cluster_patroni_port: 8008
+postgres_cluster_patroni_venv: /opt/patroni
+postgres_cluster_patroni_version: ""
+postgres_cluster_patroni_ttl: 30
+postgres_cluster_patroni_loop_wait: 10
+postgres_cluster_patroni_retry_timeout: 10
+postgres_cluster_patroni_maximum_lag_on_failover: 1048576
+postgres_cluster_patroni_rest_user: ""
+postgres_cluster_patroni_rest_password: ""
+postgres_cluster_patroni_rest_allowlist: []
+
+# TLS
+postgres_cluster_ssl_enabled: false
+postgres_cluster_ssl_self_signed: false
+postgres_cluster_ssl_cert: /etc/postgres_cluster/ssl/server.crt
+postgres_cluster_ssl_key: /etc/postgres_cluster/ssl/server.key
+postgres_cluster_ssl_ca: ""
+postgres_cluster_ssl_ciphers: "HIGH:!aNULL"
+
+# ZooKeeper
+postgres_cluster_manage_zookeeper: true
+postgres_cluster_zookeeper_nodes: "{{ postgres_cluster_nodes }}"
+postgres_cluster_zookeeper_connect: []
+postgres_cluster_zookeeper_version: 3.9.6
+postgres_cluster_zookeeper_download_url: "https://archive.apache.org/dist/zookeeper/zookeeper-{{ postgres_cluster_zookeeper_version }}/apache-zookeeper-{{ postgres_cluster_zookeeper_version }}-bin.tar.gz"
+postgres_cluster_zookeeper_checksum: "sha512:{{ postgres_cluster_zookeeper_download_url }}.sha512"
+postgres_cluster_zookeeper_install_dir: /opt/zookeeper
+postgres_cluster_zookeeper_data_dir: /var/lib/zookeeper
+postgres_cluster_zookeeper_conf_dir: /etc/zookeeper
+postgres_cluster_zookeeper_client_port: 2181
+postgres_cluster_zookeeper_leader_port: 2888
+postgres_cluster_zookeeper_election_port: 3888
+postgres_cluster_zookeeper_user_uid: ""
+postgres_cluster_java_package: ""
+
+# pgBackRest
+postgres_cluster_pgbackrest_stanza: "main_{{ postgres_cluster_version }}"
+postgres_cluster_pgbackrest_repo_type: posix
+postgres_cluster_pgbackrest_repo_path: /var/lib/pgbackrest
+postgres_cluster_pgbackrest_repo_shared: false
+postgres_cluster_pgbackrest_retention_full: 3
+postgres_cluster_pgbackrest_backup_standby: false
+postgres_cluster_pgbackrest_log_level: info
+postgres_cluster_pgbackrest_archive_push_queue_max: 5GB
+postgres_cluster_pgbackrest_spool_path: /var/spool/pgbackrest
+postgres_cluster_pgbackrest_s3_bucket: ""
+postgres_cluster_pgbackrest_s3_region: ""
+postgres_cluster_pgbackrest_s3_endpoint: ""
+postgres_cluster_pgbackrest_s3_key: ""
+postgres_cluster_pgbackrest_s3_key_secret: ""
+postgres_cluster_pgbackrest_s3_key_type: auto
+postgres_cluster_pgbackrest_s3_uri_style: host
+postgres_cluster_pgbackrest_s3_verify_tls: true
+postgres_cluster_pgbackrest_azure_account: ""
+postgres_cluster_pgbackrest_azure_container: ""
+postgres_cluster_pgbackrest_azure_key: ""
+postgres_cluster_pgbackrest_azure_key_type: shared
+postgres_cluster_pgbackrest_azure_endpoint: blob.core.windows.net
+postgres_cluster_pgbackrest_azure_uri_style: host
+postgres_cluster_pgbackrest_azure_verify_tls: true
+postgres_cluster_pgbackrest_cifs_src: ""
+postgres_cluster_pgbackrest_cifs_username: ""
+postgres_cluster_pgbackrest_cifs_password: ""
+
+# Optional components
+postgres_cluster_pgaudit_enabled: false
+postgres_cluster_pgaudit_packages: []
+postgres_cluster_pgaudit_config:
+  pgaudit.log: "ddl,role"
+  pgaudit.log_catalog: "on"
+  pgaudit.log_level: log
+  pgaudit.log_parameter: "on"
+  pgaudit.log_relation: "off"
+  pgaudit.log_statement_once: "off"
+postgres_cluster_pgagent_enabled: false
+postgres_cluster_pgagent_user: pgagent
+postgres_cluster_pgagent_password: ""
+postgres_cluster_pgagent_database: postgres
+
+# HAProxy
+postgres_cluster_haproxy_enabled: false
+postgres_cluster_haproxy_bind_address: "*"
+postgres_cluster_haproxy_write_port: 5000
+postgres_cluster_haproxy_read_port: 5001
+postgres_cluster_haproxy_maxconn: 200
+postgres_cluster_haproxy_server_maxconn: 1200
+postgres_cluster_haproxy_stats_listen: "127.0.0.1:7000"
+postgres_cluster_haproxy_prometheus_enabled: true
+postgres_cluster_haproxy_prometheus_listen_address: "localhost:8405"
+
+# Databases and roles
+postgres_cluster_databases: []
+postgres_cluster_users: []
+postgres_cluster_users_no_log: true

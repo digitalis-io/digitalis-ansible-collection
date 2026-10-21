@@ -1,0 +1,169 @@
+# Managed by Ansible
+{% set _addr = postgres_cluster_address %}
+{% set _stanza = postgres_cluster_pgbackrest_stanza %}
+{% set _parameters = {
+  'unix_socket_directories': postgres_cluster_unix_socket_directory,
+  'log_directory': postgres_cluster_log_directory,
+  'log_filename': 'postgresql-%a.log',
+  'log_truncate_on_rotation': true,
+  'logging_collector': true,
+  'password_encryption': postgres_cluster_auth_method,
+  'archive_mode': 'on',
+  'archive_command': 'pgbackrest --stanza=' ~ _stanza ~ ' archive-push %p',
+  'restore_command': '/usr/bin/pgbackrest --stanza=' ~ _stanza ~ ' archive-get %f "%p"',
+  'recovery_target_timeline': 'latest',
+  'wal_level': 'replica',
+  'ssl': postgres_cluster_ssl_enabled
+} %}
+{% if postgres_cluster_ssl_enabled %}
+{% set _ = _parameters.update({
+  'ssl_cert_file': postgres_cluster_ssl_cert,
+  'ssl_key_file': postgres_cluster_ssl_key,
+  'ssl_ciphers': postgres_cluster_ssl_ciphers,
+  'ssl_prefer_server_ciphers': true
+}) %}
+{% if postgres_cluster_ssl_ca %}
+{% set _ = _parameters.update({'ssl_ca_file': postgres_cluster_ssl_ca}) %}
+{% endif %}
+{% endif %}
+{% if postgres_cluster_nodes | length > 1 and postgres_cluster_synchronous_replication %}
+{% set _ = _parameters.update({
+  'synchronous_commit': 'on',
+  'synchronous_standby_names': 'ANY 1 (' ~ (postgres_cluster_nodes | map('regex_replace', '^(.*)$', '"\\1"') | join(', ')) ~ ')'
+}) %}
+{% endif %}
+{% if postgres_cluster_pgaudit_enabled %}
+{% set _ = _parameters.update({'shared_preload_libraries': 'pgaudit'}) %}
+{% set _ = _parameters.update(postgres_cluster_pgaudit_config) %}
+{% endif %}
+{% set _ = _parameters.update(postgres_cluster_parameters) %}
+{% set _hostssl = _postgres_cluster_pg_conf_hostssl %}
+{% set _auth = postgres_cluster_auth_method %}
+{% set _hba = [
+  'local all all peer',
+  'host all all 127.0.0.1/32 ' ~ _auth,
+  'host all all ::1/128 ' ~ _auth
+] %}
+{% for node in postgres_cluster_nodes %}
+{% set _ = _hba.extend([
+  _hostssl ~ ' replication replicator ' ~ hostvars[node]._postgres_cluster_address ~ '/32 ' ~ _auth,
+  _hostssl ~ ' postgres rewind ' ~ hostvars[node]._postgres_cluster_address ~ '/32 ' ~ _auth
+]) %}
+{% endfor %}
+{% set _ = _hba.extend(postgres_cluster_hba) %}
+scope: {{ postgres_cluster_name }}
+name: {{ inventory_hostname }}
+
+bootstrap:
+  dcs:
+    ttl: {{ postgres_cluster_patroni_ttl }}
+    loop_wait: {{ postgres_cluster_patroni_loop_wait }}
+    retry_timeout: {{ postgres_cluster_patroni_retry_timeout }}
+    maximum_lag_on_failover: {{ postgres_cluster_patroni_maximum_lag_on_failover }}
+    postgresql:
+      use_pg_rewind: true
+      use_slots: true
+      parameters:
+        {{ _parameters | to_nice_yaml(indent=2) | indent(8) }}
+  initdb:
+    - encoding: UTF8
+    - locale: {{ postgres_cluster_locale }}
+    - data-checksums
+{% if postgres_cluster_wal_directory %}
+    - waldir: {{ postgres_cluster_wal_directory }}
+{% endif %}
+{% if _postgres_cluster_restore %}
+  method: pgbackrest
+  pgbackrest:
+    command: /etc/patroni_boot_pg.sh
+    keep_existing_recovery_conf: false
+    no_params: true
+    recovery_conf:
+      restore_command: {{ ('/usr/bin/pgbackrest --stanza=' ~ _stanza ~ ' archive-get %f "%p"') | to_json }}
+      recovery_target_timeline: latest
+{% endif %}
+
+zookeeper:
+  hosts:
+{% if postgres_cluster_manage_zookeeper %}
+{% for node in postgres_cluster_zookeeper_nodes %}
+    - "{{ hostvars[node]._postgres_cluster_address }}:{{ postgres_cluster_zookeeper_client_port }}"
+{% endfor %}
+{% else %}
+{% for host in postgres_cluster_zookeeper_connect %}
+    - "{{ host }}"
+{% endfor %}
+{% endif %}
+
+restapi:
+  listen: {{ _addr }}:{{ postgres_cluster_patroni_port }}
+  connect_address: {{ _addr }}:{{ postgres_cluster_patroni_port }}
+{% if postgres_cluster_ssl_enabled %}
+  certfile: {{ postgres_cluster_ssl_cert }}
+  keyfile: {{ postgres_cluster_ssl_key }}
+{% if postgres_cluster_ssl_ca %}
+  cafile: {{ postgres_cluster_ssl_ca }}
+{% endif %}
+{% endif %}
+{% if postgres_cluster_patroni_rest_user %}
+  authentication:
+    username: {{ postgres_cluster_patroni_rest_user | to_json }}
+    password: {{ postgres_cluster_patroni_rest_password | to_json }}
+{% endif %}
+{% if postgres_cluster_patroni_rest_allowlist %}
+  allowlist:
+{% for entry in postgres_cluster_patroni_rest_allowlist %}
+    - {{ entry | to_json }}
+{% endfor %}
+  allowlist_include_members: true
+{% endif %}
+{% if postgres_cluster_ssl_enabled or postgres_cluster_patroni_rest_user %}
+
+ctl:
+{% if postgres_cluster_ssl_enabled and (postgres_cluster_ssl_self_signed or not postgres_cluster_ssl_ca) %}
+  insecure: true
+{% elif postgres_cluster_ssl_enabled %}
+  cacert: {{ postgres_cluster_ssl_ca }}
+{% endif %}
+{% if postgres_cluster_patroni_rest_user %}
+  authentication:
+    username: {{ postgres_cluster_patroni_rest_user | to_json }}
+    password: {{ postgres_cluster_patroni_rest_password | to_json }}
+{% endif %}
+{% endif %}
+
+postgresql:
+  listen: 127.0.0.1,{{ _addr }}:{{ postgres_cluster_port }}
+  connect_address: {{ _addr }}:{{ postgres_cluster_port }}
+  data_dir: {{ _postgres_cluster_data_dir }}
+  bin_dir: {{ _postgres_cluster_bin_dir }}
+  use_unix_socket: true
+  create_replica_methods:
+    - pgbackrest
+    - basebackup
+  pgbackrest:
+    command: /usr/bin/pgbackrest --stanza={{ _stanza }} --delta --link-all restore
+    keep_data: true
+    no_params: true
+  basebackup:
+    - checkpoint: fast
+  authentication:
+    replication:
+      username: replicator
+      password: {{ postgres_cluster_replication_password | to_json }}
+    superuser:
+      username: {{ postgres_cluster_user }}
+      password: {{ postgres_cluster_superuser_password | to_json }}
+    rewind:
+      username: rewind
+      password: {{ postgres_cluster_rewind_password | to_json }}
+  parameters:
+    {{ _parameters | to_nice_yaml(indent=2) | indent(4) }}
+  pg_hba:
+    {{ _hba | to_nice_yaml(indent=2) | indent(4) }}
+
+tags:
+  nofailover: false
+  noloadbalance: false
+  clonefrom: false
+  nosync: false

@@ -1,0 +1,109 @@
+---
+- name: Check whether PostgreSQL is already initialised on this node
+  ansible.builtin.stat:
+    path: "{{ _postgres_cluster_data_dir }}/PG_VERSION"
+  register: _postgres_cluster_pgdata
+
+- name: Find out whether the repository holds a backup
+  ansible.builtin.include_tasks: patroni_restore_state.yml
+
+- name: Install the Patroni configuration
+  ansible.builtin.include_tasks: patroni_config.yml
+
+- name: Install the Patroni systemd unit
+  ansible.builtin.template:
+    src: patroni.service.j2
+    dest: /etc/systemd/system/patroni.service
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Install the restore script used to bootstrap from a backup
+  ansible.builtin.template:
+    src: patroni_boot_pg.sh.j2
+    dest: /etc/patroni_boot_pg.sh
+    owner: "{{ postgres_cluster_user }}"
+    group: "{{ postgres_cluster_group }}"
+    mode: "0750"
+
+- name: Start Patroni on the primary node first
+  ansible.builtin.systemd:
+    name: patroni
+    state: started
+    enabled: true
+    daemon_reload: true
+  when: inventory_hostname == postgres_cluster_primary
+
+- name: Wait for the first node to become the primary
+  ansible.builtin.uri:
+    url: "{{ _postgres_cluster_scheme }}://{{ postgres_cluster_address }}:{{ postgres_cluster_patroni_port }}/"
+    validate_certs: false
+    use_proxy: false
+    status_code: [200, 503]
+  register: _postgres_cluster_first
+  until: _postgres_cluster_first.status == 200
+  retries: 60
+  delay: 5
+  when:
+    - inventory_hostname == postgres_cluster_primary
+    - not _postgres_cluster_pgdata.stat.exists
+
+- name: Create the pgBackRest stanza and take the first backup
+  when:
+    - inventory_hostname == postgres_cluster_primary
+    - not _postgres_cluster_restore
+  become: true
+  become_user: "{{ postgres_cluster_user }}"
+  block:
+    - name: Create the pgBackRest stanza
+      ansible.builtin.command: "pgbackrest --stanza={{ postgres_cluster_pgbackrest_stanza }} stanza-create"
+      register: _postgres_cluster_stanza
+      changed_when: "'completed successfully' in _postgres_cluster_stanza.stdout"
+      retries: 10
+      delay: 6
+      until: _postgres_cluster_stanza.rc == 0
+
+    - name: Check the archive and the stanza
+      ansible.builtin.command: "pgbackrest --stanza={{ postgres_cluster_pgbackrest_stanza }} check"
+      changed_when: false
+      retries: 10
+      delay: 6
+      register: _postgres_cluster_check
+      until: _postgres_cluster_check.rc == 0
+
+    - name: Take the first full backup
+      ansible.builtin.command: "pgbackrest --stanza={{ postgres_cluster_pgbackrest_stanza }} backup --type=full --no-backup-standby"
+      changed_when: true
+
+- name: Start Patroni on the other nodes
+  ansible.builtin.systemd:
+    name: patroni
+    state: started
+    enabled: true
+    daemon_reload: true
+  when: inventory_hostname != postgres_cluster_primary
+
+- name: Apply pending Patroni reloads
+  ansible.builtin.meta: flush_handlers
+
+- name: Wait for PostgreSQL to run on this node
+  ansible.builtin.uri:
+    url: "{{ _postgres_cluster_scheme }}://{{ postgres_cluster_address }}:{{ postgres_cluster_patroni_port }}/health"
+    validate_certs: false
+    use_proxy: false
+  register: _postgres_cluster_health
+  until: _postgres_cluster_health.status == 200
+  retries: 90
+  delay: 5
+
+# On the nodes that started after the first backup, the configuration was
+# rendered before the backup existed. Render it again so that every run
+# produces the same file.
+- name: Find out again whether the repository holds a backup
+  ansible.builtin.include_tasks: patroni_restore_state.yml
+
+- name: Install the final Patroni configuration
+  ansible.builtin.include_tasks: patroni_config.yml
+
+- name: Apply the Patroni reload
+  ansible.builtin.meta: flush_handlers

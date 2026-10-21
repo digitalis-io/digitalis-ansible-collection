@@ -1,0 +1,19 @@
+# Managed by Ansible
+tickTime=2000
+initLimit=10
+syncLimit=5
+dataDir={{ postgres_cluster_zookeeper_data_dir }}
+clientPort={{ postgres_cluster_zookeeper_client_port }}
+clientPortAddress={{ postgres_cluster_address }}
+admin.enableServer=false
+4lw.commands.whitelist=ruok,srvr,mntr
+autopurge.snapRetainCount=3
+autopurge.purgeInterval=24
+{% if postgres_cluster_zookeeper_nodes | length > 1 %}
+
+# Quorum members. Port {{ postgres_cluster_zookeeper_leader_port }} carries follower traffic and
+# {{ postgres_cluster_zookeeper_election_port }} leader election; the number is the ID in each node's myid file.
+{% for host in _postgres_cluster_zookeeper_ids %}
+server.{{ loop.index }}={{ hostvars[host]._postgres_cluster_address }}:{{ postgres_cluster_zookeeper_leader_port }}:{{ postgres_cluster_zookeeper_election_port }}
+{% endfor %}
+{% endif %}

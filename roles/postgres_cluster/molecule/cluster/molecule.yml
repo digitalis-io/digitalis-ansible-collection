@@ -1,0 +1,57 @@
+---
+dependency:
+  name: galaxy
+  options:
+    ignore-errors: true
+    requirements-file: ${MOLECULE_PROJECT_DIRECTORY}/molecule/requirements.yml
+driver:
+  name: docker
+platforms:
+  - &node
+    name: postgres-cluster-1
+    image: "geerlingguy/docker-${MOLECULE_DISTRO:-rockylinux9}-ansible:latest"
+    command: ${MOLECULE_DOCKER_COMMAND:-""}
+    cgroupns_mode: host
+    privileged: true
+    pre_build_image: true
+    # One repository for all nodes, as a shared mount would give.
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+      - postgres-cluster-pgbackrest:/var/lib/pgbackrest
+    groups:
+      - postgres_cluster
+  - <<: *node
+    name: postgres-cluster-2
+  - <<: *node
+    name: postgres-cluster-3
+provisioner:
+  name: ansible
+  env:
+    ANSIBLE_ROLES_PATH: ${MOLECULE_PROJECT_DIRECTORY}/..
+  playbooks:
+    prepare: prepare.yml
+    converge: converge.yml
+    verify: verify.yml
+  inventory:
+    group_vars:
+      all:
+        # sudo cannot authenticate root in privileged containers on some Docker hosts.
+        ansible_become_method: su
+        # Test-only secrets; the real ones belong in ansible-vault.
+        postgres_cluster_superuser_password: molecule-superuser-secret
+        postgres_cluster_replication_password: molecule-replication-secret
+        postgres_cluster_rewind_password: molecule-rewind-secret
+        postgres_cluster_name: molecule
+        postgres_cluster_pgbackrest_backup_standby: true
+        postgres_cluster_pgbackrest_repo_shared: true
+        postgres_cluster_haproxy_enabled: true
+        postgres_cluster_hba:
+          - host appdb app 0.0.0.0/0 scram-sha-256
+        postgres_cluster_databases:
+          - name: appdb
+            owner: app
+        postgres_cluster_users:
+          - name: app
+            password: molecule-app-secret
+            priv: CONNECT
+            db: appdb

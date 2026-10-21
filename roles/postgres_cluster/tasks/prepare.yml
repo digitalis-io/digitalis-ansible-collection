@@ -1,0 +1,74 @@
+---
+- name: Create the PostgreSQL group
+  ansible.builtin.group:
+    name: "{{ postgres_cluster_group }}"
+    system: true
+
+- name: Create the PostgreSQL user
+  ansible.builtin.user:
+    name: "{{ postgres_cluster_user }}"
+    group: "{{ postgres_cluster_group }}"
+    groups: "{{ postgres_cluster_user_groups }}"
+    append: true
+    uid: "{{ postgres_cluster_user_uid | default(omit, true) }}"
+    home: "{{ _postgres_cluster_user_home }}"
+    create_home: false
+    shell: /bin/bash
+    # OpenSSH refuses a locked account (password field "!!") when UsePAM is off,
+    # and standby backups log in over SSH with a key.
+    password: "{{ '*' if postgres_cluster_pgbackrest_backup_standby else omit }}"
+    system: true
+    expires: -1
+
+- name: Create the PostgreSQL home directory
+  ansible.builtin.file:
+    path: "{{ _postgres_cluster_user_home }}"
+    state: directory
+    owner: "{{ postgres_cluster_user }}"
+    group: "{{ postgres_cluster_group }}"
+    mode: "0700"
+
+- name: Create the ZooKeeper group
+  ansible.builtin.group:
+    name: zookeeper
+    system: true
+  when: &zookeeper_here
+    - postgres_cluster_manage_zookeeper
+    - inventory_hostname in postgres_cluster_zookeeper_nodes
+
+- name: Create the ZooKeeper user
+  ansible.builtin.user:
+    name: zookeeper
+    group: zookeeper
+    uid: "{{ postgres_cluster_zookeeper_user_uid | default(omit, true) }}"
+    home: "{{ postgres_cluster_zookeeper_data_dir }}"
+    create_home: false
+    shell: /sbin/nologin
+    system: true
+    expires: -1
+  when: *zookeeper_here
+
+- name: Update the APT cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+  when: ansible_facts['os_family'] == 'Debian'
+
+- name: Install base packages
+  ansible.builtin.package:
+    name: "{{ _postgres_cluster_base_packages }}"
+    state: present
+
+- name: Install locale packages
+  ansible.builtin.package:
+    name: "{{ _postgres_cluster_lang_packages }}"
+    state: present
+  when: postgres_cluster_locale is not match('^(C|POSIX)(\\.|$)')
+
+- name: Generate the locale
+  community.general.locale_gen:
+    name: "{{ postgres_cluster_locale }}"
+    state: present
+  when:
+    - ansible_facts['os_family'] == 'Debian'
+    - postgres_cluster_locale is not match('^(C|POSIX)(\\.|$)')

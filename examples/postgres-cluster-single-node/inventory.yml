@@ -1,0 +1,6 @@
+---
+all:
+  children:
+    postgres_cluster:
+      hosts:
+        pg1.example.com:

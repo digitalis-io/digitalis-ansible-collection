@@ -1,0 +1,19 @@
+---
+- name: Create PostgreSQL databases
+  community.postgresql.postgresql_db:
+    name: "{{ item.name }}"
+    lc_collate: "{{ item.lc_collate | default(postgres_cluster_locale) }}"
+    lc_ctype: "{{ item.lc_ctype | default(postgres_cluster_locale) }}"
+    encoding: "{{ item.encoding | default('UTF-8') }}"
+    template: "{{ item.template | default('template0') }}"
+    owner: "{{ item.owner | default(postgres_cluster_user) }}"
+    login_user: "{{ postgres_cluster_user }}"
+    login_unix_socket: "{{ postgres_cluster_unix_socket_directory }}"
+    port: "{{ postgres_cluster_port }}"
+    state: "{{ item.state | default('present') }}"
+  loop: "{{ postgres_cluster_databases }}"
+  loop_control:
+    label: "{{ item.name }}"
+  become: true
+  become_user: "{{ postgres_cluster_user }}"
+  tags: [postgres_cluster_databases]

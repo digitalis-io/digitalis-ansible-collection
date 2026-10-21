@@ -1,0 +1,60 @@
+---
+- name: Verify
+  hosts: all
+  gather_facts: true
+  vars:
+    postgres_cluster_version: 16
+    pg_bin_dir: "{{ '/usr/pgsql-' ~ postgres_cluster_version ~ '/bin' if ansible_facts['os_family'] == 'RedHat' else '/usr/lib/postgresql/' ~ postgres_cluster_version ~ '/bin' }}"
+    psql: "{{ pg_bin_dir }}/psql -X -A -t -v ON_ERROR_STOP=1"
+  tasks:
+    # Scenario: The data comes back
+    - name: Read the row written before the loss
+      ansible.builtin.command: "{{ psql }} -d appdb -c \"SELECT note FROM precious WHERE id = 1\""
+      become: true
+      become_user: postgres
+      register: restored_row
+      changed_when: false
+
+    - name: Assert the row survived
+      ansible.builtin.assert:
+        that: restored_row.stdout | trim == 'survives the rebuild'
+        quiet: true
+
+    - name: Read the bootstrap log of the restore script
+      ansible.builtin.command: cat /var/log/postgresql/boot.log
+      register: boot_log
+      changed_when: false
+
+    - name: Assert pgBackRest restored the database
+      ansible.builtin.assert:
+        that: "'restore command end: completed successfully' in boot_log.stdout"
+        quiet: true
+
+    # Scenario: The rebuilt cluster is healthy
+    - name: Ask Patroni for the node state
+      ansible.builtin.uri:
+        url: "http://{{ ansible_facts['default_ipv4']['address'] }}:8008/patroni"
+      register: patroni_state
+
+    - name: Assert Patroni reports a running leader
+      ansible.builtin.assert:
+        that:
+          - patroni_state.json.role in ['master', 'primary']
+          - patroni_state.json.state == 'running'
+        quiet: true
+
+    - name: Check the pgBackRest stanza
+      ansible.builtin.command: pgbackrest --stanza=main_{{ postgres_cluster_version }} check
+      become: true
+      become_user: postgres
+      changed_when: false
+
+    - name: Read the Patroni configuration
+      ansible.builtin.slurp:
+        src: /etc/patroni.yml
+      register: patroni_conf
+
+    - name: Assert the configuration bootstraps from the backup
+      ansible.builtin.assert:
+        that: "'method: pgbackrest' in (patroni_conf.content | b64decode)"
+        quiet: true

@@ -25,10 +25,13 @@ jobs:
   prometheus:
     uses: ./.github/workflows/prometheus-molecule.yml
 
+  postgres-cluster:
+    uses: ./.github/workflows/postgres-cluster-molecule.yml
+
   build:
     name: Build collection
     runs-on: ubuntu-26.04
-    needs: [lint, openbao, openbao-agent, prometheus, rabbitmq]
+    needs: [lint, openbao, openbao-agent, postgres-cluster, prometheus, rabbitmq]
     steps:
       - name: Check out the codebase
         uses: actions/checkout@v4

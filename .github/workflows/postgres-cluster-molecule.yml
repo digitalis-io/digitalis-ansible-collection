@@ -1,0 +1,52 @@
+---
+name: PostgreSQL Cluster Molecule
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'roles/postgres_cluster/**'
+      - '.github/workflows/postgres-cluster-molecule.yml'
+  pull_request:
+    paths:
+      - 'roles/postgres_cluster/**'
+      - '.github/workflows/postgres-cluster-molecule.yml'
+
+defaults:
+  run:
+    working-directory: roles/postgres_cluster
+
+permissions:
+  contents: read
+
+jobs:
+  molecule:
+    name: Molecule postgres_cluster (${{ matrix.scenario }}, ${{ matrix.distro }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        distro: [rockylinux9, rockylinux10, ubuntu2204, ubuntu2404, ubuntu2604, debian12, debian13]
+        scenario: [default, cluster, tls, restore, invalid-config]
+    env:
+      PY_COLORS: "1"
+      ANSIBLE_FORCE_COLOR: "1"
+      MOLECULE_DISTRO: ${{ matrix.distro }}
+    steps:
+      - name: Check out the codebase
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install test dependencies
+        run: pip3 install ansible-core molecule 'molecule-plugins[docker]' docker
+
+      - name: Run Molecule
+        run: molecule test -s ${{ matrix.scenario }}

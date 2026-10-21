@@ -1,0 +1,64 @@
+---
+- name: Install pgAgent
+  ansible.builtin.package:
+    name: "{{ _postgres_cluster_pgagent_packages_default }}"
+    state: present
+
+- name: Look up the pgAgent account
+  ansible.builtin.getent:
+    database: passwd
+    key: pgagent
+
+- name: Allow pgAgent to log in with a password file
+  ansible.builtin.copy:
+    dest: "{{ ansible_facts.getent_passwd.pgagent[4] }}/.pgpass"
+    content: "127.0.0.1:{{ postgres_cluster_port }}:{{ postgres_cluster_pgagent_database }}:{{ postgres_cluster_pgagent_user }}:{{ postgres_cluster_pgagent_password }}\n"
+    owner: pgagent
+    group: pgagent
+    mode: "0600"
+  diff: false
+  no_log: true
+  notify: Restart pgagent
+
+- name: Create the pgAgent database role and schema
+  when: _postgres_cluster_is_primary
+  become: true
+  become_user: "{{ postgres_cluster_user }}"
+  block:
+    - name: Create the pgAgent role
+      community.postgresql.postgresql_user:
+        name: "{{ postgres_cluster_pgagent_user }}"
+        password: "{{ postgres_cluster_pgagent_password }}"
+        role_attr_flags: SUPERUSER
+        login_user: "{{ postgres_cluster_user }}"
+        login_unix_socket: "{{ postgres_cluster_unix_socket_directory }}"
+        port: "{{ postgres_cluster_port }}"
+      no_log: true
+
+    - name: Create the pgAgent extension
+      community.postgresql.postgresql_ext:
+        name: pgagent
+        db: "{{ postgres_cluster_pgagent_database }}"
+        login_user: "{{ postgres_cluster_user }}"
+        login_unix_socket: "{{ postgres_cluster_unix_socket_directory }}"
+        port: "{{ postgres_cluster_port }}"
+
+- name: Configure the pgAgent service
+  ansible.builtin.copy:
+    dest: "{{ _postgres_cluster_pgagent_config_file }}"
+    content: |
+      DBNAME={{ postgres_cluster_pgagent_database }}
+      DBUSER={{ postgres_cluster_pgagent_user }}
+      DBHOST=127.0.0.1
+      DBPORT={{ postgres_cluster_port }}
+      LOGFILE=/var/log/pgagent_{{ postgres_cluster_version }}.log
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart pgagent
+
+- name: Start pgAgent
+  ansible.builtin.systemd:
+    name: "{{ _postgres_cluster_pgagent_service }}"
+    state: started
+    enabled: true

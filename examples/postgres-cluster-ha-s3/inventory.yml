@@ -1,0 +1,11 @@
+---
+all:
+  children:
+    postgres_cluster:
+      hosts:
+        pg1.example.com:
+          postgres_cluster_address: 10.0.1.11
+        pg2.example.com:
+          postgres_cluster_address: 10.0.1.12
+        pg3.example.com:
+          postgres_cluster_address: 10.0.1.13

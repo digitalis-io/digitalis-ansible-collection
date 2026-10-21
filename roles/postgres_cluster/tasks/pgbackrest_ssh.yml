@@ -1,0 +1,41 @@
+---
+# pgBackRest runs a backup on a standby by reaching its peers over SSH as the
+# PostgreSQL user, so every node trusts the keys and host keys of the others.
+- name: Install the SSH client
+  ansible.builtin.package:
+    name: "{{ _postgres_cluster_ssh_packages }}"
+    state: present
+
+- name: Create the .ssh directory
+  ansible.builtin.file:
+    path: "{{ _postgres_cluster_user_home }}/.ssh"
+    state: directory
+    owner: "{{ postgres_cluster_user }}"
+    group: "{{ postgres_cluster_group }}"
+    mode: "0700"
+
+- name: Generate an SSH key pair for the PostgreSQL user
+  community.crypto.openssh_keypair:
+    path: "{{ _postgres_cluster_user_home }}/.ssh/id_ed25519"
+    type: ed25519
+    owner: "{{ postgres_cluster_user }}"
+    group: "{{ postgres_cluster_group }}"
+    mode: "0600"
+  register: _postgres_cluster_ssh_key
+
+- name: Authorize the public keys of all nodes
+  ansible.posix.authorized_key:
+    user: "{{ postgres_cluster_user }}"
+    key: "{{ hostvars[item]._postgres_cluster_ssh_key.public_key }}"
+    comment: "postgres_cluster {{ item }}"
+  loop: "{{ postgres_cluster_nodes }}"
+
+- name: Trust the host keys of all nodes
+  ansible.builtin.known_hosts:
+    path: "{{ _postgres_cluster_user_home }}/.ssh/known_hosts"
+    name: "{{ hostvars[item]._postgres_cluster_address }}"
+    key: "{{ hostvars[item]._postgres_cluster_address }} ssh-ed25519 {{ hostvars[item].ansible_facts['ssh_host_key_ed25519_public'] }}"
+    state: present
+  become: true
+  become_user: "{{ postgres_cluster_user }}"
+  loop: "{{ postgres_cluster_nodes }}"

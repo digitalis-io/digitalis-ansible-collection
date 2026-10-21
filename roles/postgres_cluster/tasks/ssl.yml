@@ -1,0 +1,69 @@
+---
+- name: Create the certificate directory
+  ansible.builtin.file:
+    path: "{{ _postgres_cluster_ssl_dir }}"
+    state: directory
+    owner: root
+    group: "{{ postgres_cluster_group }}"
+    mode: "0750"
+  when: postgres_cluster_ssl_self_signed
+
+- name: Create a private key
+  community.crypto.openssl_privatekey:
+    path: "{{ postgres_cluster_ssl_key }}"
+    size: 4096
+    owner: "{{ postgres_cluster_user }}"
+    group: "{{ postgres_cluster_group }}"
+    mode: "0600"
+  when: postgres_cluster_ssl_self_signed
+  notify: Reload patroni
+
+- name: Create a certificate signing request
+  community.crypto.openssl_csr_pipe:
+    privatekey_path: "{{ postgres_cluster_ssl_key }}"
+    common_name: "{{ inventory_hostname }}"
+    subject_alt_name:
+      - "DNS:{{ inventory_hostname }}"
+      - "IP:{{ postgres_cluster_address }}"
+      - "IP:127.0.0.1"
+  register: _postgres_cluster_csr
+  changed_when: false
+  when: postgres_cluster_ssl_self_signed
+
+- name: Create a self-signed certificate
+  community.crypto.x509_certificate:
+    path: "{{ postgres_cluster_ssl_cert }}"
+    csr_content: "{{ _postgres_cluster_csr.csr }}"
+    privatekey_path: "{{ postgres_cluster_ssl_key }}"
+    provider: selfsigned
+    selfsigned_not_after: "+3650d"
+    owner: "{{ postgres_cluster_user }}"
+    group: "{{ postgres_cluster_group }}"
+    mode: "0644"
+  when: postgres_cluster_ssl_self_signed
+  notify: Reload patroni
+
+- name: Check that the certificate files exist
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  register: _postgres_cluster_ssl_files
+  loop: "{{ [postgres_cluster_ssl_cert, postgres_cluster_ssl_key] + ([postgres_cluster_ssl_ca] if postgres_cluster_ssl_ca else []) }}"
+
+- name: Assert the certificate files exist
+  ansible.builtin.assert:
+    that: item.stat.exists
+    fail_msg: "{{ item.item }} does not exist; place it on the host before running the role or set postgres_cluster_ssl_self_signed"
+    quiet: true
+  loop: "{{ _postgres_cluster_ssl_files.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: Set the certificate ownership
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    owner: "{{ postgres_cluster_user }}"
+    group: "{{ postgres_cluster_group }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: "{{ postgres_cluster_ssl_cert }}", mode: "0644" }
+    - { path: "{{ postgres_cluster_ssl_key }}", mode: "0600" }

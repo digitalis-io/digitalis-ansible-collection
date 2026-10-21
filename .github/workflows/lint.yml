@@ -28,7 +28,7 @@ jobs:
         run: pip3 install ansible-core ansible-lint yamllint -r scripts/requirements-docs.txt
 
       - name: Install collections
-        run: ansible-galaxy collection install community.rabbitmq ansible.posix
+        run: ansible-galaxy collection install community.rabbitmq ansible.posix community.postgresql community.crypto community.general
 
       - name: yamllint
         run: yamllint .

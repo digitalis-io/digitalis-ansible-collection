@@ -1,0 +1,29 @@
+---
+_postgres_cluster_bin_dir: "/usr/lib/postgresql/{{ postgres_cluster_version }}/bin"
+_postgres_cluster_user_home: /var/lib/postgresql
+_postgres_cluster_packages:
+  - "postgresql-{{ postgres_cluster_version }}"
+  - pgbackrest
+_postgres_cluster_pgaudit_packages_default: ["postgresql-{{ postgres_cluster_version }}-pgaudit"]
+_postgres_cluster_pgagent_packages_default: [pgagent]
+_postgres_cluster_pgagent_service: pgagent
+_postgres_cluster_pgagent_config_file: /etc/default/pgagent
+_postgres_cluster_base_packages:
+  - python3
+  - python3-pip
+  - python3-setuptools
+  - python3-venv
+  - python3-apt
+  - python3-debian
+  - python3-psycopg2
+  - python3-cryptography
+  - acl
+  - tar
+  - gnupg
+  - ca-certificates
+_postgres_cluster_lang_packages:
+  - locales
+_postgres_cluster_java_package_default: "{{ 'openjdk-21-jre-headless' if ansible_facts['distribution_major_version'] | int >= 13 and ansible_facts['distribution'] == 'Debian' else 'openjdk-17-jre-headless' }}"
+_postgres_cluster_haproxy_service: haproxy
+_postgres_cluster_ssh_packages: [openssh-client]
+_postgres_cluster_cifs_packages: [cifs-utils]

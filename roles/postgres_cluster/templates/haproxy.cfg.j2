@@ -1,0 +1,60 @@
+# Managed by Ansible
+global
+    log         127.0.0.1 local2
+    chroot      /var/lib/haproxy
+    maxconn     {{ postgres_cluster_haproxy_maxconn }}
+    user        haproxy
+    group       haproxy
+    daemon
+    stats socket /var/lib/haproxy/stats
+
+    ssl-default-bind-options no-sslv3 no-tlsv10 no-tlsv11
+    ssl-default-server-options no-sslv3 no-tlsv10 no-tlsv11
+
+{% if postgres_cluster_haproxy_prometheus_enabled %}
+frontend prometheus
+    bind {{ postgres_cluster_haproxy_prometheus_listen_address }}
+    mode http
+    http-request use-service prometheus-exporter if { path /metrics }
+    no log
+
+{% endif %}
+defaults
+    log global
+    mode tcp
+    retries 2
+    timeout client 30m
+    timeout connect 4s
+    timeout server 30m
+    timeout check 5s
+
+listen stats
+    mode http
+    option httplog
+    bind {{ postgres_cluster_haproxy_stats_listen }}
+    stats enable
+    stats uri /
+    stats hide-version
+
+# Patroni answers 200 on /replica only on a healthy standby and on /primary
+# only on the leader, so clients on the read port reach the standbys and
+# clients on the write port reach the leader after a failover.
+listen read_postgres
+    bind {{ postgres_cluster_haproxy_bind_address }}:{{ postgres_cluster_haproxy_read_port }}
+    option httpchk
+    http-check send meth OPTIONS uri /replica
+    http-check expect status 200
+    default-server inter 3s fall 3 rise 2 on-marked-down shutdown-sessions
+{% for node in postgres_cluster_nodes %}
+    server {{ node }} {{ hostvars[node]._postgres_cluster_address }}:{{ postgres_cluster_port }} maxconn {{ postgres_cluster_haproxy_server_maxconn }} check{% if postgres_cluster_ssl_enabled %} check-ssl verify none{% endif %} port {{ postgres_cluster_patroni_port }}
+{% endfor %}
+
+listen write_postgres
+    bind {{ postgres_cluster_haproxy_bind_address }}:{{ postgres_cluster_haproxy_write_port }}
+    option httpchk
+    http-check send meth OPTIONS uri /primary
+    http-check expect status 200
+    default-server inter 3s fall 3 rise 2 on-marked-down shutdown-sessions
+{% for node in postgres_cluster_nodes %}
+    server {{ node }} {{ hostvars[node]._postgres_cluster_address }}:{{ postgres_cluster_port }} maxconn {{ postgres_cluster_haproxy_server_maxconn }} check{% if postgres_cluster_ssl_enabled %} check-ssl verify none{% endif %} port {{ postgres_cluster_patroni_port }}
+{% endfor %}
