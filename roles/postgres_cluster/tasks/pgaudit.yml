@@ -3,11 +3,11 @@
 # so on a cluster that had pgAudit switched on later the library is not loaded yet.
 - name: Check that pgAudit is preloaded
   community.postgresql.postgresql_query:
-    db: postgres
+    login_db: postgres
     query: SHOW shared_preload_libraries
     login_user: "{{ postgres_cluster_user }}"
     login_unix_socket: "{{ postgres_cluster_unix_socket_directory }}"
-    port: "{{ postgres_cluster_port }}"
+    login_port: "{{ postgres_cluster_port }}"
   register: _postgres_cluster_preload
   changed_when: false
   become: true
@@ -23,10 +23,10 @@
 - name: Create the pgAudit extension
   community.postgresql.postgresql_ext:
     name: pgaudit
-    db: postgres
+    login_db: postgres
     login_user: "{{ postgres_cluster_user }}"
     login_unix_socket: "{{ postgres_cluster_unix_socket_directory }}"
-    port: "{{ postgres_cluster_port }}"
+    login_port: "{{ postgres_cluster_port }}"
   become: true
   become_user: "{{ postgres_cluster_user }}"
   when: "'pgaudit' in _postgres_cluster_preload.query_result[0].shared_preload_libraries"

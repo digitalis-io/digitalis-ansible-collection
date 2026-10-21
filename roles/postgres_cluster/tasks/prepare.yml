@@ -58,12 +58,20 @@
   ansible.builtin.package:
     name: "{{ _postgres_cluster_base_packages }}"
     state: present
+  register: _postgres_cluster_install_base_packages
+  until: _postgres_cluster_install_base_packages is succeeded
+  retries: 3
+  delay: 10
 
 - name: Install locale packages
   ansible.builtin.package:
     name: "{{ _postgres_cluster_lang_packages }}"
     state: present
   when: postgres_cluster_locale is not match('^(C|POSIX)(\\.|$)')
+  register: _postgres_cluster_install_locale_packages
+  until: _postgres_cluster_install_locale_packages is succeeded
+  retries: 3
+  delay: 10
 
 - name: Generate the locale
   community.general.locale_gen:

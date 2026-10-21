@@ -32,16 +32,16 @@
         role_attr_flags: SUPERUSER
         login_user: "{{ postgres_cluster_user }}"
         login_unix_socket: "{{ postgres_cluster_unix_socket_directory }}"
-        port: "{{ postgres_cluster_port }}"
+        login_port: "{{ postgres_cluster_port }}"
       no_log: true
 
     - name: Create the pgAgent extension
       community.postgresql.postgresql_ext:
         name: pgagent
-        db: "{{ postgres_cluster_pgagent_database }}"
+        login_db: "{{ postgres_cluster_pgagent_database }}"
         login_user: "{{ postgres_cluster_user }}"
         login_unix_socket: "{{ postgres_cluster_unix_socket_directory }}"
-        port: "{{ postgres_cluster_port }}"
+        login_port: "{{ postgres_cluster_port }}"
 
 - name: Configure the pgAgent service
   ansible.builtin.copy:

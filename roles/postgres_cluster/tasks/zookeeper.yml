@@ -13,6 +13,10 @@
   ansible.builtin.package:
     name: "{{ _postgres_cluster_java_package }}"
     state: present
+  register: _postgres_cluster_install_java
+  until: _postgres_cluster_install_java is succeeded
+  retries: 3
+  delay: 10
 
 - name: Create the ZooKeeper directories
   ansible.builtin.file:

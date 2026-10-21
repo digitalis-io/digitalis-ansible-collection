@@ -448,7 +448,7 @@ argument_specs:
             description: Roles this role becomes a member of. The roles must already exist.
           priv:
             type: str
-            description: Privileges in the `postgresql_user` module format, for example `CONNECT` (a privilege on the database `db`) or `CONNECT/orders:SELECT,INSERT` (also on the table `orders`). Applied after the databases exist, in `db`.
+            description: Privileges on the database `db` (default `postgres`), for example `CONNECT`. Add table privileges after a `/` as `table:PRIVS`, for example `CONNECT/orders:SELECT,INSERT`; write a table outside the `public` schema as `schema.table`. Applied with `postgresql_privs` after the databases exist.
           db:
             type: str
             description: Database that `priv` applies to.

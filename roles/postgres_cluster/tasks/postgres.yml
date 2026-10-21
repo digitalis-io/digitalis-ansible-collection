@@ -17,6 +17,10 @@
         name: postgresql-common
         update_cache: true
         state: present
+      register: _postgres_cluster_install_postgresql_common
+      until: _postgres_cluster_install_postgresql_common is succeeded
+      retries: 3
+      delay: 10
 
     - name: Do not create a default cluster, Patroni owns the data directory
       ansible.builtin.lineinfile:
@@ -58,6 +62,10 @@
       - pgdg-common
   when: ansible_facts['os_family'] == 'RedHat'
   tags: postgres_install
+  register: _postgres_cluster_install_postgresql_and_pgbackrest_on_red_hat
+  until: _postgres_cluster_install_postgresql_and_pgbackrest_on_red_hat is succeeded
+  retries: 3
+  delay: 10
 
 - name: Install PostgreSQL and pgBackRest on Debian
   ansible.builtin.apt:
@@ -65,6 +73,10 @@
     state: present
   when: ansible_facts['os_family'] == 'Debian'
   tags: postgres_install
+  register: _postgres_cluster_install_postgresql_and_pgbackrest_on_debian
+  until: _postgres_cluster_install_postgresql_and_pgbackrest_on_debian is succeeded
+  retries: 3
+  delay: 10
 
 # Installed before the first start: shared_preload_libraries fails the
 # bootstrap, and a restore from backup fails, when the library is missing.
@@ -74,6 +86,10 @@
     state: present
   when: postgres_cluster_pgaudit_enabled
   tags: pgaudit
+  register: _postgres_cluster_install_pgaudit
+  until: _postgres_cluster_install_pgaudit is succeeded
+  retries: 3
+  delay: 10
 
 - name: Do not run the packaged PostgreSQL service, Patroni controls PostgreSQL
   ansible.builtin.systemd:

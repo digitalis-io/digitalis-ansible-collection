@@ -9,7 +9,7 @@
     owner: "{{ item.owner | default(postgres_cluster_user) }}"
     login_user: "{{ postgres_cluster_user }}"
     login_unix_socket: "{{ postgres_cluster_unix_socket_directory }}"
-    port: "{{ postgres_cluster_port }}"
+    login_port: "{{ postgres_cluster_port }}"
     state: "{{ item.state | default('present') }}"
   loop: "{{ postgres_cluster_databases }}"
   loop_control:

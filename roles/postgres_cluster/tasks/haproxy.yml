@@ -3,6 +3,10 @@
   ansible.builtin.package:
     name: haproxy
     state: present
+  register: _postgres_cluster_install_haproxy
+  until: _postgres_cluster_install_haproxy is succeeded
+  retries: 3
+  delay: 10
 
 - name: Allow HAProxy to reach PostgreSQL and listen on the proxy ports
   when:

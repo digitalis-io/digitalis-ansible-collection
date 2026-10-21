@@ -1,23 +1,14 @@
 ---
 # Runs after the databases exist because privileges need the database objects.
 - name: Grant privileges to PostgreSQL roles
-  community.postgresql.postgresql_user:
-    name: "{{ item.name }}"
-    priv: "{{ item.priv }}"
-    db: "{{ item.db | default(omit) }}"
-    login_user: "{{ postgres_cluster_user }}"
-    login_unix_socket: "{{ postgres_cluster_unix_socket_directory }}"
-    port: "{{ postgres_cluster_port }}"
-    state: present
+  ansible.builtin.include_tasks: users_privs.yml
   loop: "{{ postgres_cluster_users }}"
   loop_control:
-    label: "{{ item.name }}"
+    loop_var: _postgres_cluster_user
+    label: "{{ _postgres_cluster_user.name }}"
   when:
-    - item.state | default('present') == 'present'
-    - item.priv is defined
-  no_log: "{{ postgres_cluster_users_no_log }}"
-  become: true
-  become_user: "{{ postgres_cluster_user }}"
+    - _postgres_cluster_user.state | default('present') == 'present'
+    - _postgres_cluster_user.priv is defined
   tags: [postgres_cluster_users]
 
 - name: Remove PostgreSQL roles
@@ -25,7 +16,7 @@
     name: "{{ item.name }}"
     login_user: "{{ postgres_cluster_user }}"
     login_unix_socket: "{{ postgres_cluster_unix_socket_directory }}"
-    port: "{{ postgres_cluster_port }}"
+    login_port: "{{ postgres_cluster_port }}"
     state: absent
   loop: "{{ postgres_cluster_users }}"
   loop_control:

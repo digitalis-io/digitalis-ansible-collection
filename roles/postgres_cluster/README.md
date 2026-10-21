@@ -355,7 +355,7 @@ Generated from `meta/argument_specs.yml`; run `scripts/generate-docs.sh` to refr
 | `password` | str | no |  | Password in clear text; PostgreSQL stores a hash. Without it the role has no password and cannot log in with one. |
 | `role_attr_flags` | str | no |  | Comma separated role attributes, for example `CREATEDB,NOLOGIN`, `SUPERUSER` or `REPLICATION`. |
 | `roles` | list of str | no |  | Roles this role becomes a member of. The roles must already exist. |
-| `priv` | str | no |  | Privileges in the `postgresql_user` module format, for example `CONNECT` (a privilege on the database `db`) or `CONNECT/orders:SELECT,INSERT` (also on the table `orders`). Applied after the databases exist, in `db`. |
+| `priv` | str | no |  | Privileges on the database `db` (default `postgres`), for example `CONNECT`. Add table privileges after a `/` as `table:PRIVS`, for example `CONNECT/orders:SELECT,INSERT`; write a table outside the `public` schema as `schema.table`. Applied with `postgresql_privs` after the databases exist. |
 | `db` | str | no |  | Database that `priv` applies to. |
 | `state` | str | no |  | `present` creates the role, `absent` drops it. Defaults to `present`. One of `present`, `absent`. |
 <!-- END_ANSIBLE_DOCS -->

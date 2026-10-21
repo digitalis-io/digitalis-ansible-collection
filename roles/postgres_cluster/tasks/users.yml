@@ -7,7 +7,7 @@
     role_attr_flags: "{{ item.role_attr_flags | default(omit) }}"
     login_user: "{{ postgres_cluster_user }}"
     login_unix_socket: "{{ postgres_cluster_unix_socket_directory }}"
-    port: "{{ postgres_cluster_port }}"
+    login_port: "{{ postgres_cluster_port }}"
     state: present
   loop: "{{ postgres_cluster_users }}"
   loop_control:
@@ -24,7 +24,7 @@
     target_roles: "{{ item.name }}"
     login_user: "{{ postgres_cluster_user }}"
     login_unix_socket: "{{ postgres_cluster_unix_socket_directory }}"
-    port: "{{ postgres_cluster_port }}"
+    login_port: "{{ postgres_cluster_port }}"
     state: present
   loop: "{{ postgres_cluster_users }}"
   loop_control:
