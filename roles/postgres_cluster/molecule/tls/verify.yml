@@ -81,6 +81,12 @@
           - postgres_cluster_verify_key_stat.stat.pw_name == 'postgres'
         quiet: true
 
+    - name: Install the cryptography library for certificate inspection
+      ansible.builtin.package:
+        name: python3-cryptography
+        state: present
+      become: true
+
     - name: Read the certificate names
       community.crypto.x509_certificate_info:
         path: /etc/postgres_cluster/ssl/server.crt
