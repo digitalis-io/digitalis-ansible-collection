@@ -82,13 +82,13 @@
         quiet: true
 
     - name: Read the certificate names
-      ansible.builtin.command: openssl x509 -in /etc/postgres_cluster/ssl/server.crt -noout -ext subjectAltName
+      community.crypto.x509_certificate_info:
+        path: /etc/postgres_cluster/ssl/server.crt
       register: postgres_cluster_verify_cert_names
-      changed_when: false
 
     - name: Assert the certificate names the address
       ansible.builtin.assert:
-        that: "('IP Address:' ~ addr) in postgres_cluster_verify_cert_names.stdout"
+        that: "('IP:' ~ addr) in postgres_cluster_verify_cert_names.subject_alt_name"
         quiet: true
 
     # Scenario: The custom layout is honoured
