@@ -1,0 +1,105 @@
+---
+# The Java packages register man pages and fail on minimal images without this directory.
+- name: Create the man page directory
+  ansible.builtin.file:
+    path: /usr/share/man/man1
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: ansible_facts['os_family'] == 'Debian'
+
+- name: Install Java
+  ansible.builtin.package:
+    name: "{{ _postgres_cluster_java_package }}"
+    state: present
+  register: _postgres_cluster_install_java
+  until: _postgres_cluster_install_java is succeeded
+  retries: 3
+  delay: 10
+
+- name: Create the ZooKeeper directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: zookeeper
+    mode: "0755"
+  loop:
+    - { path: "{{ postgres_cluster_zookeeper_install_dir }}", owner: root }
+    - { path: "{{ postgres_cluster_zookeeper_data_dir }}", owner: zookeeper }
+    - { path: "{{ postgres_cluster_zookeeper_conf_dir }}", owner: root }
+
+- name: Download ZooKeeper
+  ansible.builtin.get_url:
+    url: "{{ postgres_cluster_zookeeper_download_url }}"
+    dest: "/var/tmp/apache-zookeeper-{{ postgres_cluster_zookeeper_version }}-bin.tar.gz"
+    checksum: "{{ postgres_cluster_zookeeper_checksum | default(omit, true) }}"
+    mode: "0644"
+  register: _postgres_cluster_zookeeper_archive
+  retries: 5
+  delay: 10
+  until: _postgres_cluster_zookeeper_archive is succeeded
+
+- name: Extract ZooKeeper
+  ansible.builtin.unarchive:
+    src: "{{ _postgres_cluster_zookeeper_archive.dest }}"
+    remote_src: true
+    dest: "{{ postgres_cluster_zookeeper_install_dir }}"
+    extra_opts: [--strip-components=1]
+    owner: root
+    group: zookeeper
+    creates: "{{ postgres_cluster_zookeeper_install_dir }}/bin/zkServer.sh"
+  register: _postgres_cluster_zk_extract
+
+- name: Configure ZooKeeper
+  ansible.builtin.template:
+    src: zoo.cfg.j2
+    dest: "{{ postgres_cluster_zookeeper_conf_dir }}/zoo.cfg"
+    owner: root
+    group: zookeeper
+    mode: "0644"
+  register: _postgres_cluster_zk_conf
+
+- name: Set the ZooKeeper node ID
+  ansible.builtin.copy:
+    dest: "{{ postgres_cluster_zookeeper_data_dir }}/myid"
+    content: "{{ _postgres_cluster_zookeeper_ids.index(inventory_hostname) + 1 }}"
+    owner: zookeeper
+    group: zookeeper
+    mode: "0644"
+  register: _postgres_cluster_zk_myid
+
+- name: Install the ZooKeeper systemd unit
+  ansible.builtin.template:
+    src: zookeeper.service.j2
+    dest: /etc/systemd/system/zookeeper.service
+    owner: root
+    group: root
+    mode: "0644"
+  register: _postgres_cluster_zk_unit
+
+- name: Start ZooKeeper
+  ansible.builtin.systemd:
+    name: zookeeper
+    state: started
+    enabled: true
+    daemon_reload: true
+  register: _postgres_cluster_zk_start
+
+# One node at a time, so the ensemble keeps its quorum and Patroni keeps its
+# configuration store. A node that was just started needs no restart.
+- name: Restart ZooKeeper after a change, one node at a time
+  ansible.builtin.systemd:
+    name: zookeeper
+    state: restarted
+  throttle: 1
+  when:
+    - _postgres_cluster_zk_start is not changed
+    - (_postgres_cluster_zk_extract is changed) or (_postgres_cluster_zk_conf is changed) or (_postgres_cluster_zk_myid is changed) or (_postgres_cluster_zk_unit is changed)
+
+- name: Wait for ZooKeeper to answer
+  ansible.builtin.wait_for:
+    port: "{{ postgres_cluster_zookeeper_client_port }}"
+    host: "{{ postgres_cluster_address }}"
+    timeout: 120

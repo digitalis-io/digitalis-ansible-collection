@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Ansible collection `digitalis.digitalis`: roles `openbao`, `openbao_agent`, `prometheus` and `rabbitmq`. Public repo under `digitalis-io`. Digitalis.io branding.
+Ansible collection `digitalis.digitalis`: roles `openbao`, `openbao_agent`, `postgres_cluster`, `prometheus` and `rabbitmq`. Public repo under `digitalis-io`. Digitalis.io branding.
 
 ## Layout
 

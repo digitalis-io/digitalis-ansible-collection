@@ -1,0 +1,39 @@
+---
+- name: Create the pgBackRest log and spool directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ postgres_cluster_user }}"
+    group: "{{ postgres_cluster_group }}"
+    mode: "0750"
+  loop:
+    - /var/log/pgbackrest
+    - "{{ postgres_cluster_pgbackrest_spool_path }}"
+
+- name: Create the local backup repository
+  ansible.builtin.file:
+    path: "{{ postgres_cluster_pgbackrest_repo_path }}"
+    state: directory
+    owner: "{{ postgres_cluster_user }}"
+    group: "{{ postgres_cluster_group }}"
+    mode: "0750"
+  when: postgres_cluster_pgbackrest_repo_type == 'posix'
+
+- name: Mount the CIFS backup repository
+  ansible.builtin.import_tasks: pgbackrest_cifs_mount.yml
+  when: postgres_cluster_pgbackrest_repo_type == 'cifs'
+  tags: pgbackrest_cifs_mount
+
+- name: Set up SSH trust between the nodes for standby backups
+  ansible.builtin.import_tasks: pgbackrest_ssh.yml
+  when: postgres_cluster_pgbackrest_backup_standby
+  tags: pgbackrest_ssh
+
+- name: Configure pgBackRest
+  ansible.builtin.template:
+    src: pgbackrest.conf.j2
+    dest: /etc/pgbackrest.conf
+    owner: "{{ postgres_cluster_user }}"
+    group: "{{ postgres_cluster_group }}"
+    mode: "0600"
+  diff: false

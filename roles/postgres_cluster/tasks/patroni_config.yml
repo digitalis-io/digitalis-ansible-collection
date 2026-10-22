@@ -1,0 +1,10 @@
+---
+- name: Configure Patroni
+  ansible.builtin.template:
+    src: patroni.yml.j2
+    dest: /etc/patroni.yml
+    owner: "{{ postgres_cluster_user }}"
+    group: "{{ postgres_cluster_group }}"
+    mode: "0600"
+  diff: false
+  notify: Reload patroni

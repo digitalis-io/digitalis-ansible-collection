@@ -1,0 +1,54 @@
+---
+# Three nodes with TLS on client connections, replication and the Patroni REST
+# API, using certificates from your own CA, and a password protected REST API.
+#
+# The certificate files must be on the hosts before the role runs; the first
+# play copies them from the controller. The role fails with a clear message
+# when a file is missing. Use postgres_cluster_ssl_self_signed: true instead to
+# let the role create a self-signed certificate for each node (tests only).
+#
+# Secrets are read from the environment of the controller:
+#   export PG_SUPERUSER_PASSWORD=... PG_REPLICATION_PASSWORD=... PG_REWIND_PASSWORD=...
+#   export PATRONI_REST_PASSWORD=...
+- name: Place the certificates
+  hosts: postgres_cluster
+  become: true
+  tasks:
+    - name: Create the certificate directory
+      ansible.builtin.file:
+        path: /etc/postgres_cluster/ssl
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Copy the certificate files
+      ansible.builtin.copy:
+        src: "certs/{{ inventory_hostname }}/{{ item }}"
+        dest: "/etc/postgres_cluster/ssl/{{ item }}"
+        owner: root
+        group: root
+        mode: "{{ '0600' if item == 'server.key' else '0644' }}"
+      loop:
+        - server.crt
+        - server.key
+        - ca.crt
+
+- name: Install a three node PostgreSQL cluster with TLS
+  hosts: postgres_cluster
+  become: true
+  roles:
+    - role: digitalis.digitalis.postgres_cluster
+      vars:
+        postgres_cluster_name: secure
+        postgres_cluster_superuser_password: "{{ lookup('ansible.builtin.env', 'PG_SUPERUSER_PASSWORD') }}"
+        postgres_cluster_replication_password: "{{ lookup('ansible.builtin.env', 'PG_REPLICATION_PASSWORD') }}"
+        postgres_cluster_rewind_password: "{{ lookup('ansible.builtin.env', 'PG_REWIND_PASSWORD') }}"
+        postgres_cluster_ssl_enabled: true
+        postgres_cluster_ssl_cert: /etc/postgres_cluster/ssl/server.crt
+        postgres_cluster_ssl_key: /etc/postgres_cluster/ssl/server.key
+        postgres_cluster_ssl_ca: /etc/postgres_cluster/ssl/ca.crt
+        postgres_cluster_patroni_rest_user: admin
+        postgres_cluster_patroni_rest_password: "{{ lookup('ansible.builtin.env', 'PATRONI_REST_PASSWORD') }}"
+        postgres_cluster_hba:
+          - hostssl all all 10.0.2.0/24 scram-sha-256

@@ -1,0 +1,165 @@
+---
+- name: Set up the PostgreSQL repository on Debian
+  when: ansible_facts['os_family'] == 'Debian'
+  block:
+    - name: Add the PostgreSQL APT repository
+      ansible.builtin.deb822_repository:
+        name: pgdg
+        types: [deb]
+        uris: https://apt.postgresql.org/pub/repos/apt
+        suites: ["{{ ansible_facts['distribution_release'] }}-pgdg"]
+        components: [main]
+        signed_by: https://apt.postgresql.org/pub/repos/apt/ACCC4CF8.asc
+        state: present
+
+    - name: Install postgresql-common
+      ansible.builtin.apt:
+        name: postgresql-common
+        update_cache: true
+        state: present
+      register: _postgres_cluster_install_postgresql_common
+      until: _postgres_cluster_install_postgresql_common is succeeded
+      retries: 3
+      delay: 10
+
+    - name: Do not create a default cluster, Patroni owns the data directory
+      ansible.builtin.lineinfile:
+        path: /etc/postgresql-common/createcluster.conf
+        regexp: '^#?create_main_cluster\s*='
+        line: create_main_cluster = false
+        mode: "0644"
+
+- name: Set up the PostgreSQL repository on Red Hat
+  when: ansible_facts['os_family'] == 'RedHat'
+  tags: postgres_install
+  block:
+    - name: Import the PGDG signing keys
+      ansible.builtin.rpm_key:
+        key: "{{ item }}"
+        state: present
+      loop:
+        - https://download.postgresql.org/pub/repos/yum/keys/PGDG-RPM-GPG-KEY-RHEL
+        - https://download.postgresql.org/pub/repos/yum/keys/PGDG-RPM-GPG-KEY-AARCH64-RHEL
+
+    - name: Install the PGDG repository package
+      ansible.builtin.dnf:
+        name: "https://download.postgresql.org/pub/repos/yum/reporpms/EL-{{ ansible_facts['distribution_major_version'] }}-{{ ansible_facts['architecture'] }}/pgdg-redhat-repo-latest.noarch.rpm"
+        state: present
+
+    - name: Disable the distribution PostgreSQL module
+      ansible.builtin.command: dnf -qy module disable postgresql
+      register: _postgres_cluster_module_disable
+      changed_when: "'Disabling modules' in _postgres_cluster_module_disable.stdout or 'Disabling module' in _postgres_cluster_module_disable.stdout"
+      when: ansible_facts['distribution_major_version'] | int < 10
+
+- name: Install PostgreSQL and pgBackRest on Red Hat
+  ansible.builtin.dnf:
+    name: "{{ _postgres_cluster_packages }}"
+    state: present
+    disablerepo: "pgdg*"
+    enablerepo:
+      - "pgdg{{ postgres_cluster_version }}"
+      - pgdg-common
+  when: ansible_facts['os_family'] == 'RedHat'
+  tags: postgres_install
+  register: _postgres_cluster_install_postgresql_and_pgbackrest_on_red_hat
+  until: _postgres_cluster_install_postgresql_and_pgbackrest_on_red_hat is succeeded
+  retries: 3
+  delay: 10
+
+- name: Install PostgreSQL and pgBackRest on Debian
+  ansible.builtin.apt:
+    name: "{{ _postgres_cluster_packages }}"
+    state: present
+  when: ansible_facts['os_family'] == 'Debian'
+  tags: postgres_install
+  register: _postgres_cluster_install_postgresql_and_pgbackrest_on_debian
+  until: _postgres_cluster_install_postgresql_and_pgbackrest_on_debian is succeeded
+  retries: 3
+  delay: 10
+
+# Installed before the first start: shared_preload_libraries fails the
+# bootstrap, and a restore from backup fails, when the library is missing.
+- name: Install pgAudit
+  ansible.builtin.package:
+    name: "{{ _postgres_cluster_pgaudit_packages }}"
+    state: present
+  when: postgres_cluster_pgaudit_enabled
+  tags: pgaudit
+  register: _postgres_cluster_install_pgaudit
+  until: _postgres_cluster_install_pgaudit is succeeded
+  retries: 3
+  delay: 10
+
+- name: Do not run the packaged PostgreSQL service, Patroni controls PostgreSQL
+  ansible.builtin.systemd:
+    name: "{{ 'postgresql-' ~ postgres_cluster_version if ansible_facts['os_family'] == 'RedHat' else 'postgresql' }}"
+    state: stopped
+    enabled: false
+  failed_when: false
+  changed_when: false
+
+- name: Create the data and log directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ postgres_cluster_user }}"
+    group: "{{ postgres_cluster_group }}"
+    mode: "0750"
+  loop: "{{ [postgres_cluster_data_directory, postgres_cluster_log_directory] | unique }}"
+
+# initdb sets the mode of the WAL directory to 0700
+- name: Create the WAL directory
+  ansible.builtin.file:
+    path: "{{ postgres_cluster_wal_directory }}"
+    state: directory
+    owner: "{{ postgres_cluster_user }}"
+    group: "{{ postgres_cluster_group }}"
+    mode: "0700"
+  when: postgres_cluster_wal_directory | length > 0
+
+# Other accounts connect through the socket, so they need to reach it.
+- name: Create the socket directory
+  ansible.builtin.file:
+    path: "{{ postgres_cluster_unix_socket_directory }}"
+    state: directory
+    owner: "{{ postgres_cluster_user }}"
+    group: "{{ postgres_cluster_group }}"
+    mode: "0755"
+
+# initdb requires an empty directory and a mode of 0700 or 0750
+- name: Create the PostgreSQL data directory
+  ansible.builtin.file:
+    path: "{{ _postgres_cluster_data_dir }}"
+    state: directory
+    owner: "{{ postgres_cluster_user }}"
+    group: "{{ postgres_cluster_group }}"
+    mode: "0700"
+
+- name: Create the Patroni virtual environment
+  ansible.builtin.pip:
+    name:
+      - "patroni[zookeeper]{{ '==' ~ postgres_cluster_patroni_version if postgres_cluster_patroni_version else '' }}"
+      - psycopg2-binary
+      - setuptools
+    virtualenv: "{{ postgres_cluster_patroni_venv }}"
+    virtualenv_command: python3 -m venv
+    state: present
+  tags: patroni_install
+
+- name: Link the Patroni commands into the path
+  ansible.builtin.file:
+    src: "{{ postgres_cluster_patroni_venv }}/bin/{{ item }}"
+    dest: "/usr/local/bin/{{ item }}"
+    state: link
+  loop: [patroni, patronictl]
+
+- name: Add a patronictl alias and PATH entry to login shells
+  ansible.builtin.copy:
+    content: |
+      alias patronictl='/usr/local/bin/patronictl -c /etc/patroni.yml'
+      export PATH=/usr/local/bin:$PATH
+    dest: /etc/profile.d/patroni.sh
+    owner: root
+    group: root
+    mode: "0644"

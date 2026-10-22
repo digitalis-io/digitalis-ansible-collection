@@ -1,0 +1,37 @@
+---
+# priv is "DATABASE_PRIVS", "TABLE:PRIVS" or both joined with "/", for example
+# CONNECT/orders:SELECT,INSERT. A table in another schema is written schema.table.
+- name: Grant the database privileges
+  community.postgresql.postgresql_privs:
+    type: database
+    login_db: "{{ _postgres_cluster_user.db | default('postgres') }}"
+    objs: "{{ _postgres_cluster_user.db | default('postgres') }}"
+    roles: "{{ _postgres_cluster_user.name }}"
+    privs: "{{ _postgres_cluster_db_privs }}"
+    state: present
+    login_user: "{{ postgres_cluster_user }}"
+    login_unix_socket: "{{ postgres_cluster_unix_socket_directory }}"
+    login_port: "{{ postgres_cluster_port }}"
+  vars:
+    _postgres_cluster_db_privs: "{{ _postgres_cluster_user.priv.split('/') | reject('search', ':') | join(',') }}"
+  when: _postgres_cluster_db_privs | length > 0
+  become: true
+  become_user: "{{ postgres_cluster_user }}"
+
+- name: Grant the table privileges
+  community.postgresql.postgresql_privs:
+    type: table
+    login_db: "{{ _postgres_cluster_user.db | default('postgres') }}"
+    schema: "{{ _postgres_cluster_table.split(':')[0].split('.')[0] if '.' in _postgres_cluster_table.split(':')[0] else 'public' }}"
+    objs: "{{ _postgres_cluster_table.split(':')[0].split('.')[-1] }}"
+    roles: "{{ _postgres_cluster_user.name }}"
+    privs: "{{ _postgres_cluster_table.split(':')[1] }}"
+    state: present
+    login_user: "{{ postgres_cluster_user }}"
+    login_unix_socket: "{{ postgres_cluster_unix_socket_directory }}"
+    login_port: "{{ postgres_cluster_port }}"
+  loop: "{{ _postgres_cluster_user.priv.split('/') | select('search', ':') | list }}"
+  loop_control:
+    loop_var: _postgres_cluster_table
+  become: true
+  become_user: "{{ postgres_cluster_user }}"

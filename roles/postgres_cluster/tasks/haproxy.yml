@@ -1,0 +1,51 @@
+---
+- name: Install HAProxy
+  ansible.builtin.package:
+    name: haproxy
+    state: present
+  register: _postgres_cluster_install_haproxy
+  until: _postgres_cluster_install_haproxy is succeeded
+  retries: 3
+  delay: 10
+
+- name: Allow HAProxy to reach PostgreSQL and listen on the proxy ports
+  when:
+    - ansible_facts['os_family'] == 'RedHat'
+    - ansible_facts['selinux']['status'] | default('disabled') == 'enabled'
+  block:
+    - name: Install the SELinux management tools
+      ansible.builtin.package:
+        name: policycoreutils-python-utils
+        state: present
+
+    - name: Allow HAProxy to connect to any port
+      ansible.posix.seboolean:
+        name: haproxy_connect_any
+        persistent: true
+        state: true
+
+    - name: Label the proxy ports for HAProxy
+      community.general.seport:
+        ports: "{{ item }}"
+        proto: tcp
+        setype: http_port_t
+        state: present
+      loop:
+        - "{{ postgres_cluster_haproxy_write_port }}"
+        - "{{ postgres_cluster_haproxy_read_port }}"
+
+- name: Configure HAProxy
+  ansible.builtin.template:
+    src: haproxy.cfg.j2
+    dest: /etc/haproxy/haproxy.cfg
+    owner: root
+    group: root
+    mode: "0644"
+    validate: haproxy -c -f %s
+  notify: Reload haproxy
+
+- name: Start HAProxy
+  ansible.builtin.systemd:
+    name: "{{ _postgres_cluster_haproxy_service }}"
+    state: started
+    enabled: true

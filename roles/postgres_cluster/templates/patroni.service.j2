@@ -1,0 +1,20 @@
+# Managed by Ansible
+[Unit]
+Description=Patroni, a high availability manager for PostgreSQL
+After=syslog.target network.target{% if postgres_cluster_manage_zookeeper and inventory_hostname in postgres_cluster_zookeeper_nodes %} zookeeper.service
+Wants=zookeeper.service{% endif %}
+
+
+[Service]
+Type=simple
+User={{ postgres_cluster_user }}
+Group={{ postgres_cluster_group }}
+ExecStart={{ postgres_cluster_patroni_venv }}/bin/patroni /etc/patroni.yml
+ExecReload=/bin/kill -s HUP $MAINPID
+# Only the Patroni process is killed on a timeout, not the PostgreSQL processes.
+KillMode=process
+TimeoutSec=30
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

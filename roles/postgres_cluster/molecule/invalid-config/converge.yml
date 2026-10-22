@@ -1,0 +1,109 @@
+---
+- name: Converge
+  hosts: all
+  gather_facts: true
+  vars:
+    postgres_cluster_test_cases:
+      - name: an unsupported PostgreSQL version
+        vars: { postgres_cluster_version: 13 }
+        expect: "value of postgres_cluster_version must be one of"
+      - name: an empty superuser password
+        vars: { postgres_cluster_superuser_password: "" }
+        expect: "postgres_cluster_superuser_password must be set to a secret"
+      - name: a placeholder replication password
+        vars: { postgres_cluster_replication_password: changeme }
+        expect: "postgres_cluster_replication_password must be set to a secret"
+      - name: a short rewind password
+        vars: { postgres_cluster_rewind_password: short }
+        expect: "postgres_cluster_rewind_password must be set to a secret"
+      - name: an empty node list
+        vars: { postgres_cluster_nodes: [] }
+        expect: "postgres_cluster_nodes must list the inventory hostnames"
+      - name: a host missing from the node list
+        vars: { postgres_cluster_nodes: [some-other-host] }
+        expect: "postgres_cluster_nodes must list the inventory hostnames"
+      - name: a WAL directory inside the data directory
+        vars: { postgres_cluster_wal_directory: /pg_data/wal }
+        expect: "postgres_cluster_wal_directory must be an absolute path outside"
+      - name: a relative WAL directory
+        vars: { postgres_cluster_wal_directory: pg_wal }
+        expect: "postgres_cluster_wal_directory must be an absolute path outside"
+      - name: an unsupported authentication method
+        vars: { postgres_cluster_auth_method: trust }
+        expect: "value of postgres_cluster_auth_method must be one of"
+      - name: an unsupported backup repository type
+        vars: { postgres_cluster_pgbackrest_repo_type: ftp }
+        expect: "value of postgres_cluster_pgbackrest_repo_type must be one of"
+      - name: an S3 repository without a bucket
+        vars: { postgres_cluster_pgbackrest_repo_type: s3, postgres_cluster_pgbackrest_s3_region: eu-west-2 }
+        expect: "postgres_cluster_pgbackrest_s3_bucket and postgres_cluster_pgbackrest_s3_region are required"
+      - name: an S3 access key without its secret
+        vars: { postgres_cluster_pgbackrest_repo_type: s3, postgres_cluster_pgbackrest_s3_bucket: backups, postgres_cluster_pgbackrest_s3_region: eu-west-2, postgres_cluster_pgbackrest_s3_key: test-access-key }
+        expect: "the key and its secret must be set together"
+      - name: an Azure repository without a container
+        vars: { postgres_cluster_pgbackrest_repo_type: azure, postgres_cluster_pgbackrest_azure_account: acct, postgres_cluster_pgbackrest_azure_key: secret }
+        expect: "postgres_cluster_pgbackrest_azure_account, _container and _key are required"
+      - name: a CIFS repository without a share
+        vars: { postgres_cluster_pgbackrest_repo_type: cifs }
+        expect: "postgres_cluster_pgbackrest_cifs_src, _cifs_username and _cifs_password are required"
+      - name: standby backups on a single node
+        vars: { postgres_cluster_pgbackrest_backup_standby: true }
+        expect: "needs at least two nodes"
+      - name: ZooKeeper nodes outside the node list
+        vars: { postgres_cluster_zookeeper_nodes: [some-other-host] }
+        expect: "must be a non-empty subset of postgres_cluster_nodes"
+      - name: an external ZooKeeper without addresses
+        vars: { postgres_cluster_manage_zookeeper: false }
+        expect: "postgres_cluster_zookeeper_connect"
+      - name: a self-signed certificate without TLS
+        vars: { postgres_cluster_ssl_self_signed: true }
+        expect: "has no effect unless postgres_cluster_ssl_enabled is true"
+      - name: TLS without a certificate path
+        vars: { postgres_cluster_ssl_enabled: true, postgres_cluster_ssl_cert: "" }
+        expect: "postgres_cluster_ssl_cert and postgres_cluster_ssl_key are required"
+      - name: a REST user without a password
+        vars: { postgres_cluster_patroni_rest_user: admin }
+        expect: "must be set together"
+      - name: pgAgent without a password
+        vars: { postgres_cluster_pgagent_enabled: true }
+        expect: "postgres_cluster_pgagent_password is required"
+      - name: a non-numeric port
+        vars: { postgres_cluster_port: not-a-port }
+        expect: "argument 'postgres_cluster_port' is of type"
+      - name: a user item without a name
+        vars: { postgres_cluster_users: [{ password: secret }] }
+        expect: "missing required arguments: name"
+      - name: a database item with an unknown key
+        vars: { postgres_cluster_databases: [{ name: appdb, owners: app }] }
+        expect: "Supported parameters include"
+  tasks:
+    - name: Check every invalid configuration is rejected
+      ansible.builtin.include_tasks: expect-rejection.yml
+      loop: "{{ postgres_cluster_test_cases }}"
+      loop_control:
+        loop_var: postgres_cluster_test_case
+        label: "{{ postgres_cluster_test_case.name }}"
+
+    # The argument specification, not the role's own checks, rejects a run
+    # that sets no passwords at all.
+    - name: Apply the role without any password
+      block:
+        - name: Include the role with the default variables only
+          ansible.builtin.include_role:
+            name: postgres_cluster
+
+        - name: Fail because the role accepted missing passwords
+          ansible.builtin.fail:
+            msg: postgres_cluster accepted a run without passwords
+      rescue:
+        - name: Re-raise when the role accepted missing passwords
+          ansible.builtin.fail:
+            msg: "{{ ansible_failed_result.msg }}"
+          when: ansible_failed_task.name == 'Fail because the role accepted missing passwords'
+
+        - name: Assert the failure lists the missing passwords
+          ansible.builtin.assert:
+            that:
+              - "'missing required arguments' in ansible_failed_result.msg"
+              - "'postgres_cluster_superuser_password' in ansible_failed_result.msg"
+            quiet: true

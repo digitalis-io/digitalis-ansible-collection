@@ -1,0 +1,25 @@
+---
+- name: Wait until the cluster has a leader
+  ansible.builtin.uri:
+    url: "{{ _postgres_cluster_scheme }}://{{ postgres_cluster_address }}:{{ postgres_cluster_patroni_port }}/cluster"
+    validate_certs: false
+    use_proxy: false
+    return_content: true
+  register: _postgres_cluster_members
+  until: >-
+    _postgres_cluster_members.status == 200 and
+    (_postgres_cluster_members.json.members | selectattr('role', 'in', ['leader', 'primary']) | list | length) == 1
+  retries: 60
+  delay: 5
+
+- name: Check whether this node is the primary
+  ansible.builtin.uri:
+    url: "{{ _postgres_cluster_scheme }}://{{ postgres_cluster_address }}:{{ postgres_cluster_patroni_port }}/"
+    validate_certs: false
+    use_proxy: false
+    status_code: [200, 503]
+  register: _postgres_cluster_role
+
+- name: Remember whether this node is the primary
+  ansible.builtin.set_fact:
+    _postgres_cluster_is_primary: "{{ _postgres_cluster_role.status == 200 }}"

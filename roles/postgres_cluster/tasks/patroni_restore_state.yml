@@ -1,0 +1,18 @@
+---
+# An existing backup means a rebuilt cluster must restore from it instead of
+# running initdb. A stanza without backups, or no stanza at all, is a new
+# cluster; an unreachable repository is an error, so the play stops before it
+# creates a new cluster on top of it.
+- name: Read the pgBackRest repository
+  ansible.builtin.command: "pgbackrest --stanza={{ postgres_cluster_pgbackrest_stanza }} info --output=json"
+  become: true
+  become_user: "{{ postgres_cluster_user }}"
+  register: _postgres_cluster_repo_info
+  changed_when: false
+
+- name: Decide whether to bootstrap from a backup
+  ansible.builtin.set_fact:
+    _postgres_cluster_restore: >-
+      {{ (_postgres_cluster_repo_info.stdout | from_json
+          | selectattr('name', 'equalto', postgres_cluster_pgbackrest_stanza)
+          | map(attribute='backup') | map('length') | sum) > 0 }}

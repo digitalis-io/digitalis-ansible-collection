@@ -1,0 +1,38 @@
+---
+# The module creates a role that can log in unless role_attr_flags says NOLOGIN.
+- name: Create PostgreSQL roles
+  community.postgresql.postgresql_user:
+    name: "{{ item.name }}"
+    password: "{{ item.password | default(omit) }}"
+    role_attr_flags: "{{ item.role_attr_flags | default(omit) }}"
+    login_user: "{{ postgres_cluster_user }}"
+    login_unix_socket: "{{ postgres_cluster_unix_socket_directory }}"
+    login_port: "{{ postgres_cluster_port }}"
+    state: present
+  loop: "{{ postgres_cluster_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: item.state | default('present') == 'present'
+  no_log: "{{ postgres_cluster_users_no_log }}"
+  become: true
+  become_user: "{{ postgres_cluster_user }}"
+  tags: [postgres_cluster_users]
+
+- name: Grant roles to users
+  community.postgresql.postgresql_membership:
+    groups: "{{ item.roles }}"
+    target_roles: "{{ item.name }}"
+    login_user: "{{ postgres_cluster_user }}"
+    login_unix_socket: "{{ postgres_cluster_unix_socket_directory }}"
+    login_port: "{{ postgres_cluster_port }}"
+    state: present
+  loop: "{{ postgres_cluster_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when:
+    - item.state | default('present') == 'present'
+    - item.roles | default([]) | length > 0
+  no_log: "{{ postgres_cluster_users_no_log }}"
+  become: true
+  become_user: "{{ postgres_cluster_user }}"
+  tags: [postgres_cluster_users]

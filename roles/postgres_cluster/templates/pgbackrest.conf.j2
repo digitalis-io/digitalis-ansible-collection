@@ -1,0 +1,65 @@
+# Managed by Ansible
+[global]
+{% if postgres_cluster_pgbackrest_repo_type == 's3' %}
+repo1-type=s3
+repo1-path=/
+repo1-retention-full={{ postgres_cluster_pgbackrest_retention_full }}
+repo1-s3-bucket={{ postgres_cluster_pgbackrest_s3_bucket }}
+repo1-s3-region={{ postgres_cluster_pgbackrest_s3_region }}
+repo1-s3-endpoint={{ postgres_cluster_pgbackrest_s3_endpoint | default('s3.' ~ postgres_cluster_pgbackrest_s3_region ~ '.amazonaws.com', true) }}
+repo1-s3-uri-style={{ postgres_cluster_pgbackrest_s3_uri_style }}
+{% if postgres_cluster_pgbackrest_s3_key %}
+repo1-s3-key={{ postgres_cluster_pgbackrest_s3_key }}
+repo1-s3-key-secret={{ postgres_cluster_pgbackrest_s3_key_secret }}
+repo1-s3-key-type=shared
+{% else %}
+repo1-s3-key-type={{ postgres_cluster_pgbackrest_s3_key_type }}
+{% endif %}
+{% if not postgres_cluster_pgbackrest_s3_verify_tls %}
+repo1-storage-verify-tls=n
+{% endif %}
+{% elif postgres_cluster_pgbackrest_repo_type == 'azure' %}
+repo1-type=azure
+repo1-path=/
+repo1-retention-full={{ postgres_cluster_pgbackrest_retention_full }}
+repo1-azure-account={{ postgres_cluster_pgbackrest_azure_account }}
+repo1-azure-container={{ postgres_cluster_pgbackrest_azure_container }}
+repo1-azure-key={{ postgres_cluster_pgbackrest_azure_key }}
+repo1-azure-key-type={{ postgres_cluster_pgbackrest_azure_key_type }}
+repo1-azure-endpoint={{ postgres_cluster_pgbackrest_azure_endpoint }}
+repo1-azure-uri-style={{ postgres_cluster_pgbackrest_azure_uri_style }}
+{% if not postgres_cluster_pgbackrest_azure_verify_tls %}
+repo1-storage-verify-tls=n
+{% endif %}
+{% else %}
+repo1-type={{ postgres_cluster_pgbackrest_repo_type }}
+repo1-path={{ postgres_cluster_pgbackrest_repo_path }}
+repo1-retention-full={{ postgres_cluster_pgbackrest_retention_full }}
+{% endif %}
+
+compress-type=zst
+compress-level=6
+
+log-level-console=info
+log-level-file={{ postgres_cluster_pgbackrest_log_level }}
+
+archive-async=y
+archive-push-queue-max={{ postgres_cluster_pgbackrest_archive_push_queue_max }}
+spool-path={{ postgres_cluster_pgbackrest_spool_path }}
+{% if postgres_cluster_pgbackrest_backup_standby %}
+backup-standby=y
+{% endif %}
+
+[{{ postgres_cluster_pgbackrest_stanza }}]
+pg1-path={{ _postgres_cluster_data_dir }}
+pg1-port={{ postgres_cluster_port }}
+pg1-socket-path={{ postgres_cluster_unix_socket_directory }}
+{% if postgres_cluster_pgbackrest_backup_standby %}
+{% for host in postgres_cluster_nodes if host != inventory_hostname %}
+pg{{ loop.index + 1 }}-host={{ hostvars[host]._postgres_cluster_address }}
+pg{{ loop.index + 1 }}-host-user={{ postgres_cluster_user }}
+pg{{ loop.index + 1 }}-path={{ _postgres_cluster_data_dir }}
+pg{{ loop.index + 1 }}-port={{ postgres_cluster_port }}
+pg{{ loop.index + 1 }}-socket-path={{ postgres_cluster_unix_socket_directory }}
+{% endfor %}
+{% endif %}

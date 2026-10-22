@@ -1,0 +1,26 @@
+---
+_postgres_cluster_bin_dir: "/usr/pgsql-{{ postgres_cluster_version }}/bin"
+_postgres_cluster_user_home: /var/lib/pgsql
+_postgres_cluster_packages:
+  - "postgresql{{ postgres_cluster_version }}-server"
+  - "postgresql{{ postgres_cluster_version }}-contrib"
+  - "postgresql{{ postgres_cluster_version }}-libs"
+  - pgbackrest
+_postgres_cluster_pgaudit_packages_default: "{{ ['pgaudit16_14'] if postgres_cluster_version | int == 14 else ['pgaudit17_15'] if postgres_cluster_version | int == 15 else ['pgaudit_' ~ postgres_cluster_version] }}"
+_postgres_cluster_pgagent_packages_default: ["pgagent_{{ postgres_cluster_version }}"]
+_postgres_cluster_pgagent_service: "pgagent_{{ postgres_cluster_version }}"
+_postgres_cluster_pgagent_config_file: "/etc/pgagent/pgagent_{{ postgres_cluster_version }}.conf"
+_postgres_cluster_base_packages:
+  - python3
+  - python3-pip
+  - python3-setuptools
+  - python3-psycopg2
+  - python3-cryptography
+  - acl
+  - tar
+_postgres_cluster_lang_packages:
+  - glibc-all-langpacks
+_postgres_cluster_java_package_default: "{{ 'java-21-openjdk-headless' if ansible_facts['distribution_major_version'] | int >= 10 else 'java-17-openjdk-headless' }}"
+_postgres_cluster_haproxy_service: haproxy
+_postgres_cluster_ssh_packages: [openssh-clients]
+_postgres_cluster_cifs_packages: [cifs-utils]

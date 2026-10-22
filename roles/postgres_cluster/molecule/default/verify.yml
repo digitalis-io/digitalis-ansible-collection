@@ -1,0 +1,245 @@
+---
+- name: Verify
+  hosts: all
+  gather_facts: true
+  vars:
+    postgres_cluster_version: 16
+    pg_bin_dir: "{{ '/usr/pgsql-' ~ postgres_cluster_version ~ '/bin' if ansible_facts['os_family'] == 'RedHat' else '/usr/lib/postgresql/' ~ postgres_cluster_version ~ '/bin' }}"
+    psql: "{{ pg_bin_dir }}/psql -X -A -t -v ON_ERROR_STOP=1"
+    api: "http://{{ ansible_facts['default_ipv4']['address'] }}:8008"
+  tasks:
+    # Scenario: The cluster components run as services
+    - name: Gather service facts
+      ansible.builtin.service_facts:
+
+    - name: Assert Patroni, ZooKeeper and HAProxy are enabled and running
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.services[item + '.service'].state == 'running'
+          - ansible_facts.services[item + '.service'].status == 'enabled'
+        quiet: true
+      loop: [patroni, zookeeper, haproxy]
+
+    - name: Assert the packaged PostgreSQL service is not enabled
+      ansible.builtin.assert:
+        that: >-
+          (ansible_facts.services[svc + '.service'].status | default('not-found')) not in ['enabled']
+        quiet: true
+      vars:
+        svc: "{{ 'postgresql-' ~ postgres_cluster_version if ansible_facts['os_family'] == 'RedHat' else 'postgresql' }}"
+
+    # Scenario: The node leads the cluster
+    - name: Ask the Patroni API for the node role
+      ansible.builtin.uri:
+        url: "{{ api }}/patroni"
+        return_content: true
+      register: postgres_cluster_verify_patroni_state
+
+    - name: Assert the node is the running primary
+      ansible.builtin.assert:
+        that:
+          - postgres_cluster_verify_patroni_state.json.role in ['master', 'primary']
+          - postgres_cluster_verify_patroni_state.json.state == 'running'
+        quiet: true
+
+    - name: List the cluster with patronictl
+      ansible.builtin.command: /usr/local/bin/patronictl -c /etc/patroni.yml list --format json
+      register: postgres_cluster_verify_patronictl_list
+      changed_when: false
+
+    - name: Assert there is exactly one leader
+      ansible.builtin.assert:
+        that:
+          - (postgres_cluster_verify_patronictl_list.stdout | from_json) | length == 1
+          - (postgres_cluster_verify_patronictl_list.stdout | from_json)[0]['Role'] == 'Leader'
+          - (postgres_cluster_verify_patronictl_list.stdout | from_json)[0]['State'] == 'running'
+        quiet: true
+
+    - name: Read the server version and a configured setting
+      ansible.builtin.command: >-
+        {{ psql }} -c "SELECT current_setting('server_version_num')::int / 10000, current_setting('max_connections')"
+      become: true
+      become_user: postgres
+      register: postgres_cluster_verify_server_info
+      changed_when: false
+
+    - name: Assert the PostgreSQL version and setting
+      ansible.builtin.assert:
+        that: postgres_cluster_verify_server_info.stdout | trim == postgres_cluster_version ~ '|150'
+        quiet: true
+
+    # Scenario: ZooKeeper holds the cluster state
+    - name: Send the ZooKeeper ruok command
+      ansible.builtin.shell: |
+        exec 3<>/dev/tcp/{{ ansible_facts['default_ipv4']['address'] }}/2181
+        echo ruok >&3
+        cat <&3
+      args:
+        executable: /bin/bash
+      register: postgres_cluster_verify_zk_ruok
+      changed_when: false
+
+    - name: Assert ZooKeeper is healthy
+      ansible.builtin.assert:
+        that: postgres_cluster_verify_zk_ruok.stdout == 'imok'
+        quiet: true
+
+    - name: List the cluster key in ZooKeeper
+      ansible.builtin.command: /opt/zookeeper/bin/zkCli.sh -server {{ ansible_facts['default_ipv4']['address'] }}:2181 ls /service
+      register: postgres_cluster_verify_zk_ls
+      changed_when: false
+
+    - name: Assert the cluster is registered
+      ansible.builtin.assert:
+        that: "'molecule' in postgres_cluster_verify_zk_ls.stdout"
+        quiet: true
+
+    # Scenario: Roles and databases are created
+    - name: Query the databases and roles
+      ansible.builtin.command: >-
+        {{ psql }} -c "SELECT (SELECT pg_get_userbyid(datdba) FROM pg_database WHERE datname = 'appdb'),
+        (SELECT count(*) FROM pg_roles WHERE rolname = 'tmpuser'),
+        (SELECT count(*) FROM pg_auth_members m JOIN pg_roles r ON r.oid = m.member JOIN pg_roles g ON g.oid = m.roleid WHERE r.rolname = 'readonly' AND g.rolname = 'pg_read_all_data')"
+      become: true
+      become_user: postgres
+      register: postgres_cluster_verify_roles_info
+      changed_when: false
+
+    - name: Assert the database owner, removed role and membership
+      ansible.builtin.assert:
+        that: postgres_cluster_verify_roles_info.stdout | trim == 'app|0|1'
+        quiet: true
+
+    - name: Write through the HAProxy write port as the application role
+      ansible.builtin.command: >-
+        {{ psql }} -h {{ ansible_facts['default_ipv4']['address'] }} -p 5000 -U app -d appdb
+        -c "CREATE TABLE IF NOT EXISTS verify_t (id int); INSERT INTO verify_t VALUES (1); SELECT count(*) > 0 FROM verify_t; DROP TABLE verify_t"
+      environment:
+        PGPASSWORD: molecule-app-secret
+      register: postgres_cluster_verify_app_write
+      changed_when: false
+
+    - name: Assert the write succeeded
+      ansible.builtin.assert:
+        that: "'t' in postgres_cluster_verify_app_write.stdout_lines"
+        quiet: true
+
+    - name: Try to write as the read-only role
+      ansible.builtin.command: >-
+        {{ psql }} -h 127.0.0.1 -U readonly -d postgres -c "CREATE TABLE ro_t (id int)"
+      environment:
+        PGPASSWORD: molecule-readonly-secret
+      register: postgres_cluster_verify_readonly_write
+      failed_when: false
+      changed_when: false
+
+    - name: Assert the read-only role was refused
+      ansible.builtin.assert:
+        that:
+          - postgres_cluster_verify_readonly_write.rc != 0
+          - "'permission denied' in postgres_cluster_verify_readonly_write.stderr"
+        quiet: true
+
+    # Scenario: Credentials are not exposed
+    - name: Stat the Patroni configuration
+      ansible.builtin.stat:
+        path: /etc/patroni.yml
+      register: postgres_cluster_verify_patroni_conf
+
+    - name: Assert only the PostgreSQL user can read it
+      ansible.builtin.assert:
+        that:
+          - postgres_cluster_verify_patroni_conf.stat.mode == '0600'
+          - postgres_cluster_verify_patroni_conf.stat.pw_name == 'postgres'
+        quiet: true
+
+    - name: Log in with a wrong password
+      ansible.builtin.command: >-
+        {{ psql }} -h 127.0.0.1 -U app -d appdb -c "SELECT 1"
+      environment:
+        PGPASSWORD: not-the-password
+      register: postgres_cluster_verify_wrong_password
+      failed_when: false
+      changed_when: false
+
+    - name: Assert the login was refused
+      ansible.builtin.assert:
+        that:
+          - postgres_cluster_verify_wrong_password.rc != 0
+          - "'authentication failed' in postgres_cluster_verify_wrong_password.stderr"
+        quiet: true
+
+    # Scenario: Backups and WAL archiving work
+    - name: Read the pgBackRest backup list
+      ansible.builtin.command: pgbackrest --stanza=main_{{ postgres_cluster_version }} info --output=json
+      become: true
+      become_user: postgres
+      register: postgres_cluster_verify_pgbackrest_info
+      changed_when: false
+
+    - name: Assert a full backup exists and the stanza is healthy
+      ansible.builtin.assert:
+        that:
+          - (postgres_cluster_verify_pgbackrest_info.stdout | from_json)[0].status.code == 0
+          - (postgres_cluster_verify_pgbackrest_info.stdout | from_json)[0].backup | selectattr('type', 'equalto', 'full') | list | length >= 1
+        quiet: true
+
+    - name: Run the pgBackRest check
+      ansible.builtin.command: pgbackrest --stanza=main_{{ postgres_cluster_version }} check
+      become: true
+      become_user: postgres
+      changed_when: false
+
+    # Scenario: Auditing is active
+    - name: Read the preloaded libraries and extensions
+      ansible.builtin.command: >-
+        {{ psql }} -c "SELECT current_setting('shared_preload_libraries'), (SELECT count(*) FROM pg_extension WHERE extname = 'pgaudit')"
+      become: true
+      become_user: postgres
+      register: postgres_cluster_verify_audit_info
+      changed_when: false
+
+    - name: Assert pgAudit is preloaded and installed
+      ansible.builtin.assert:
+        that: postgres_cluster_verify_audit_info.stdout | trim == 'pgaudit|1'
+        quiet: true
+
+    - name: Read the HAProxy metrics
+      ansible.builtin.uri:
+        url: http://localhost:8405/metrics
+        return_content: true
+      register: postgres_cluster_verify_haproxy_metrics
+
+    - name: Assert the metrics include the PostgreSQL backends
+      ansible.builtin.assert:
+        that: "'haproxy_backend_up' in postgres_cluster_verify_haproxy_metrics.content or 'haproxy_server_status' in postgres_cluster_verify_haproxy_metrics.content"
+        quiet: true
+
+    # Scenario: The job scheduler runs where the distribution supports it
+    - name: Check pgAgent on the Red Hat family
+      when: ansible_facts['os_family'] == 'RedHat'
+      block:
+        - name: Assert the pgAgent service runs
+          ansible.builtin.assert:
+            that:
+              - ansible_facts.services['pgagent_16.service'].state == 'running'
+              - ansible_facts.services['pgagent_16.service'].status == 'enabled'
+            quiet: true
+
+        - name: Look for the pgAgent extension
+          ansible.builtin.command: "{{ psql }} -c \"SELECT count(*) FROM pg_extension WHERE extname = 'pgagent'\""
+          become: true
+          become_user: postgres
+          register: postgres_cluster_verify_pgagent_ext
+          changed_when: false
+
+        - name: Assert the extension exists
+          ansible.builtin.assert:
+            that: postgres_cluster_verify_pgagent_ext.stdout | trim == '1'
+            quiet: true
+
+    - name: Check that Debian and Ubuntu get no pgAgent service
+      when: ansible_facts['os_family'] == 'Debian'
+      ansible.builtin.assert:
+        that: "'pgagent.service' not in ansible_facts.services"
+        quiet: true

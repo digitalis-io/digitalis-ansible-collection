@@ -1,0 +1,15 @@
+---
+- name: Reload patroni
+  ansible.builtin.systemd:
+    name: patroni
+    state: reloaded
+
+- name: Reload haproxy
+  ansible.builtin.systemd:
+    name: "{{ _postgres_cluster_haproxy_service }}"
+    state: reloaded
+
+- name: Restart pgagent
+  ansible.builtin.systemd:
+    name: "{{ _postgres_cluster_pgagent_service }}"
+    state: restarted

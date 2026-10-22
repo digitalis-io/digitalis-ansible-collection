@@ -1,0 +1,171 @@
+---
+- name: Assert | Check the operating system
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['os_family'] in ['RedHat', 'Debian']
+    fail_msg: "{{ ansible_facts['distribution'] }} is not supported; use Red Hat Enterprise Linux (or a rebuild), Debian or Ubuntu"
+    quiet: true
+
+- name: Assert | Check the PostgreSQL version
+  ansible.builtin.assert:
+    that:
+      - postgres_cluster_version | int in [14, 15, 16, 17]
+    fail_msg: "postgres_cluster_version must be one of 14, 15, 16 or 17"
+    quiet: true
+
+- name: Assert | Check the node list
+  ansible.builtin.assert:
+    that:
+      - postgres_cluster_nodes | length > 0
+      - inventory_hostname in postgres_cluster_nodes
+      - postgres_cluster_primary in postgres_cluster_nodes
+    fail_msg: >-
+      postgres_cluster_nodes must list the inventory hostnames of the cluster and include every host the role runs on
+      (default: the inventory group postgres_cluster), and postgres_cluster_primary must be one of them
+    quiet: true
+
+- name: Assert | Check the passwords
+  ansible.builtin.assert:
+    that:
+      - item.value is string
+      - item.value | length >= 8
+      - item.value | lower not in _postgres_cluster_placeholder_passwords
+    fail_msg: "{{ item.key }} must be set to a secret of at least 8 characters and not a placeholder such as changeme"
+    quiet: true
+  loop:
+    - { key: postgres_cluster_superuser_password, value: "{{ postgres_cluster_superuser_password | default('') }}" }
+    - { key: postgres_cluster_replication_password, value: "{{ postgres_cluster_replication_password | default('') }}" }
+    - { key: postgres_cluster_rewind_password, value: "{{ postgres_cluster_rewind_password | default('') }}" }
+  loop_control:
+    label: "{{ item.key }}"
+  no_log: true
+
+- name: Assert | Check the WAL directory
+  ansible.builtin.assert:
+    that:
+      - not (postgres_cluster_wal_directory + '/').startswith(postgres_cluster_data_directory + '/')
+      - postgres_cluster_wal_directory.startswith('/')
+    fail_msg: "postgres_cluster_wal_directory must be an absolute path outside postgres_cluster_data_directory"
+    quiet: true
+  when: postgres_cluster_wal_directory | length > 0
+
+- name: Assert | Check the pgBackRest repository type
+  ansible.builtin.assert:
+    that:
+      - postgres_cluster_pgbackrest_repo_type in _postgres_cluster_repo_types
+    fail_msg: "postgres_cluster_pgbackrest_repo_type must be one of {{ _postgres_cluster_repo_types | join(', ') }}"
+    quiet: true
+
+- name: Assert | Check the backup repository is shared between the nodes
+  ansible.builtin.assert:
+    that:
+      - postgres_cluster_nodes | length == 1 or postgres_cluster_pgbackrest_repo_type != 'posix' or postgres_cluster_pgbackrest_repo_shared
+    fail_msg: >-
+      With several nodes the posix pgBackRest repository must be one directory that all nodes see (for example an NFS mount), because
+      only the node that first became primary creates the stanza and a failover would otherwise stop WAL archiving. Set
+      postgres_cluster_pgbackrest_repo_shared to true when the path is shared, or use the s3, azure or cifs type
+    quiet: true
+
+- name: Assert | Check S3 settings
+  ansible.builtin.assert:
+    that:
+      - postgres_cluster_pgbackrest_s3_bucket | length > 0
+      - postgres_cluster_pgbackrest_s3_region | length > 0
+      - (postgres_cluster_pgbackrest_s3_key | length > 0) == (postgres_cluster_pgbackrest_s3_key_secret | length > 0)
+    fail_msg: >-
+      postgres_cluster_pgbackrest_s3_bucket and postgres_cluster_pgbackrest_s3_region are required for the s3 repository,
+      and the key and its secret must be set together
+    quiet: true
+  when: postgres_cluster_pgbackrest_repo_type == 's3'
+
+- name: Assert | Check Azure settings
+  ansible.builtin.assert:
+    that:
+      - postgres_cluster_pgbackrest_azure_account | length > 0
+      - postgres_cluster_pgbackrest_azure_container | length > 0
+      - postgres_cluster_pgbackrest_azure_key | length > 0
+    fail_msg: "postgres_cluster_pgbackrest_azure_account, _container and _key are required for the azure repository"
+    quiet: true
+  when: postgres_cluster_pgbackrest_repo_type == 'azure'
+
+- name: Assert | Check CIFS settings
+  ansible.builtin.assert:
+    that:
+      - postgres_cluster_pgbackrest_cifs_src | length > 0
+      - postgres_cluster_pgbackrest_cifs_username | length > 0
+      - postgres_cluster_pgbackrest_cifs_password | length > 0
+    fail_msg: "postgres_cluster_pgbackrest_cifs_src, _cifs_username and _cifs_password are required for the cifs repository"
+    quiet: true
+  when: postgres_cluster_pgbackrest_repo_type == 'cifs'
+
+- name: Assert | Check the standby backup settings
+  ansible.builtin.assert:
+    that:
+      - postgres_cluster_nodes | length > 1
+    fail_msg: "postgres_cluster_pgbackrest_backup_standby needs at least two nodes in postgres_cluster_nodes"
+    quiet: true
+  when: postgres_cluster_pgbackrest_backup_standby
+
+- name: Assert | Check the ZooKeeper settings
+  ansible.builtin.assert:
+    that:
+      - postgres_cluster_zookeeper_nodes | length > 0
+      - postgres_cluster_zookeeper_nodes | difference(postgres_cluster_nodes) | length == 0
+    fail_msg: "postgres_cluster_zookeeper_nodes must be a non-empty subset of postgres_cluster_nodes"
+    quiet: true
+  when: postgres_cluster_manage_zookeeper
+
+- name: Assert | Check the external ZooKeeper settings
+  ansible.builtin.assert:
+    that:
+      - postgres_cluster_zookeeper_connect | length > 0
+    fail_msg: "postgres_cluster_zookeeper_connect (a list of host:port) is required when postgres_cluster_manage_zookeeper is false"
+    quiet: true
+  when: not postgres_cluster_manage_zookeeper
+
+- name: Assert | Check the TLS settings
+  ansible.builtin.assert:
+    that:
+      - postgres_cluster_ssl_cert | length > 0
+      - postgres_cluster_ssl_key | length > 0
+    fail_msg: "postgres_cluster_ssl_cert and postgres_cluster_ssl_key are required when postgres_cluster_ssl_enabled is true"
+    quiet: true
+  when: postgres_cluster_ssl_enabled
+
+- name: Assert | Check that self-signed certificates need TLS
+  ansible.builtin.assert:
+    that:
+      - postgres_cluster_ssl_enabled
+    fail_msg: "postgres_cluster_ssl_self_signed has no effect unless postgres_cluster_ssl_enabled is true"
+    quiet: true
+  when: postgres_cluster_ssl_self_signed
+
+- name: Assert | Check the REST API credentials
+  ansible.builtin.assert:
+    that:
+      - (postgres_cluster_patroni_rest_user | length > 0) == (postgres_cluster_patroni_rest_password | length > 0)
+    fail_msg: "postgres_cluster_patroni_rest_user and postgres_cluster_patroni_rest_password must be set together"
+    quiet: true
+
+- name: Assert | Check the pgAgent password
+  ansible.builtin.assert:
+    that:
+      - postgres_cluster_pgagent_password | length >= 8
+    fail_msg: "postgres_cluster_pgagent_password is required (8 characters or more) when postgres_cluster_pgagent_enabled is true"
+    quiet: true
+  when: postgres_cluster_pgagent_enabled
+
+- name: Assert | Check the authentication method
+  ansible.builtin.assert:
+    that:
+      - postgres_cluster_auth_method in ['scram-sha-256', 'md5']
+    fail_msg: "postgres_cluster_auth_method must be scram-sha-256 or md5"
+    quiet: true
+
+- name: Assert | Check pgAgent support
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['os_family'] == 'RedHat'
+    fail_msg: "postgres_cluster_pgagent_enabled is supported on the Red Hat family only; the Debian pgagent package ships no service"
+    quiet: true
+  when: postgres_cluster_pgagent_enabled

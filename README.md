@@ -44,6 +44,7 @@ collections:
 | [openbao_agent](roles/openbao_agent/README.md) | Install and run OpenBao Agent to render secrets to files |
 | [rabbitmq](roles/rabbitmq/README.md) | Install and configure RabbitMQ, including clustering, TLS and queues |
 | [prometheus](roles/prometheus/README.md) | Install and configure the Prometheus monitoring system |
+| [postgres_cluster](roles/postgres_cluster/README.md) | Highly available PostgreSQL with Patroni, ZooKeeper, pgBackRest and HAProxy |
 
 Variable reference, defaults and examples are in each role's README. Complete
 playbooks are in [examples](examples/README.md).
@@ -54,13 +55,13 @@ playbooks are in [examples](examples/README.md).
 |--------------|----------|
 | Red Hat Enterprise Linux and rebuilds (Rocky, Alma) | 9, 10 |
 | Debian | 12 (bookworm), 13 (trixie) |
-| Ubuntu | 22.04 (jammy), 24.04 (noble) |
+| Ubuntu | 22.04 (jammy), 24.04 (noble), 26.04 (resolute, `postgres_cluster` only) |
 
 ## Testing
 
 Each role has Molecule scenarios under `roles/<role>/molecule/`, driven by
 `MOLECULE_DISTRO` (`rockylinux9`, `rockylinux10`, `ubuntu2204`, `ubuntu2404`,
-`debian12`, `debian13`):
+`ubuntu2604`, `debian12`, `debian13`):
 
 ```bash
 pip install ansible-core molecule 'molecule-plugins[docker]' docker
@@ -77,4 +78,4 @@ by Robert de Bock; see [roles/openbao/NOTICE](roles/openbao/NOTICE).
 
 ---
 
-Maintained by [Digitalis.io](https://digitalis.io). Support at [digitalis.io/contact](https://digitalis.io/contact).
+This project is maintained by [Digitalis.io](https://digitalis.io). For support, visit [digitalis.io/contact](https://digitalis.io/contact).

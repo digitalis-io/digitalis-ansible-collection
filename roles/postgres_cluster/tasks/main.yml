@@ -1,0 +1,88 @@
+---
+- name: Validate the role input
+  ansible.builtin.import_tasks: assert.yml
+  tags: always
+
+- name: Load OS specific variables
+  ansible.builtin.include_vars: "{{ ansible_facts['os_family'] }}.yml"
+  tags: always
+
+- name: Publish the node address for the other nodes
+  ansible.builtin.set_fact:
+    _postgres_cluster_address: "{{ postgres_cluster_address }}"
+  tags: always
+
+- name: Check that every node has published its address
+  ansible.builtin.assert:
+    that:
+      - hostvars[item]._postgres_cluster_address is defined
+    fail_msg: >-
+      {{ item }} has not published its address. Run the role on all of postgres_cluster_nodes in one play, without
+      serial, --limit or strategy: free, so that every node is known before the configuration is rendered
+    quiet: true
+  loop: "{{ postgres_cluster_nodes }}"
+  tags: always
+
+- name: Create accounts and install base packages
+  ansible.builtin.import_tasks: prepare.yml
+  tags: [postgres_cluster_prepare]
+
+- name: Generate a self-signed certificate
+  ansible.builtin.import_tasks: ssl.yml
+  when: postgres_cluster_ssl_enabled
+  tags: [postgres_cluster_ssl, ssl]
+
+- name: Install and configure ZooKeeper
+  ansible.builtin.import_tasks: zookeeper.yml
+  when:
+    - postgres_cluster_manage_zookeeper
+    - inventory_hostname in postgres_cluster_zookeeper_nodes
+  tags: [postgres_cluster_zookeeper, zookeeper]
+
+- name: Install PostgreSQL, pgBackRest and Patroni
+  ansible.builtin.import_tasks: postgres.yml
+  tags: [postgres_cluster_postgres, postgres]
+
+- name: Configure the pgBackRest repository
+  ansible.builtin.import_tasks: pgbackrest.yml
+  tags: [postgres_cluster_pgbackrest, pgbackrest]
+
+- name: Configure Patroni and bootstrap the cluster
+  ansible.builtin.import_tasks: patroni.yml
+  tags: [postgres_cluster_patroni, patroni]
+
+- name: Find the current primary
+  ansible.builtin.import_tasks: find_primary.yml
+  tags: [postgres_cluster_users, postgres_cluster_databases, users, databases, pgaudit, pgagent]
+
+- name: Create roles
+  ansible.builtin.import_tasks: users.yml
+  when: _postgres_cluster_is_primary
+  tags: [postgres_cluster_users, users]
+
+- name: Create databases
+  ansible.builtin.import_tasks: databases.yml
+  when: _postgres_cluster_is_primary
+  tags: [postgres_cluster_databases, databases]
+
+- name: Apply role attributes and privileges
+  ansible.builtin.import_tasks: users_props.yml
+  when: _postgres_cluster_is_primary
+  tags: [postgres_cluster_users, users, databases]
+
+- name: Enable pgAudit
+  ansible.builtin.import_tasks: pgaudit.yml
+  when:
+    - postgres_cluster_pgaudit_enabled
+    - _postgres_cluster_is_primary
+  tags: [postgres_cluster_pgaudit, pgaudit]
+
+- name: Install pgAgent
+  ansible.builtin.import_tasks: pgagent.yml
+  when: postgres_cluster_pgagent_enabled
+  tags: [postgres_cluster_pgagent, pgagent]
+
+- name: Install and configure HAProxy
+  ansible.builtin.import_tasks: haproxy.yml
+  when: postgres_cluster_haproxy_enabled
+  tags: [postgres_cluster_haproxy, haproxy]

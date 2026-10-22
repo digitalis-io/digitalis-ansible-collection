@@ -1,0 +1,56 @@
+---
+dependency:
+  name: galaxy
+  options:
+    ignore-errors: true
+    requirements-file: ${MOLECULE_PROJECT_DIRECTORY}/molecule/requirements.yml
+driver:
+  name: docker
+platforms:
+  - name: ${MOLECULE_INSTANCE_NAME:-"postgres-cluster-tls"}
+    image: "geerlingguy/docker-${MOLECULE_DISTRO:-rockylinux9}-ansible:latest"
+    command: ${MOLECULE_DOCKER_COMMAND:-""}
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    cgroupns_mode: host
+    privileged: true
+    pre_build_image: true
+    groups:
+      - postgres_cluster
+provisioner:
+  name: ansible
+  env:
+    ANSIBLE_ROLES_PATH: ${MOLECULE_PROJECT_DIRECTORY}/..
+  playbooks:
+    converge: converge.yml
+    verify: verify.yml
+  inventory:
+    group_vars:
+      all:
+        # sudo cannot authenticate root in privileged containers on some Docker hosts.
+        ansible_become_method: su
+        # Test-only secrets; the real ones belong in ansible-vault.
+        postgres_cluster_superuser_password: molecule-superuser-secret
+        postgres_cluster_replication_password: molecule-replication-secret
+        postgres_cluster_rewind_password: molecule-rewind-secret
+        postgres_cluster_patroni_rest_user: admin
+        postgres_cluster_patroni_rest_password: molecule-rest-secret
+        postgres_cluster_name: molecule-tls
+        postgres_cluster_port: 5433
+        postgres_cluster_locale: C.UTF-8
+        postgres_cluster_wal_directory: /pg_wal
+        postgres_cluster_auth_method: md5
+        postgres_cluster_ssl_enabled: true
+        postgres_cluster_ssl_self_signed: true
+        postgres_cluster_haproxy_enabled: true
+        postgres_cluster_haproxy_write_port: 6000
+        postgres_cluster_haproxy_read_port: 6001
+        postgres_cluster_pgbackrest_retention_full: 2
+        postgres_cluster_hba:
+          - hostssl tlsdb tlsapp 0.0.0.0/0 md5
+        postgres_cluster_databases:
+          - name: tlsdb
+            owner: tlsapp
+        postgres_cluster_users:
+          - name: tlsapp
+            password: molecule-tlsapp-secret

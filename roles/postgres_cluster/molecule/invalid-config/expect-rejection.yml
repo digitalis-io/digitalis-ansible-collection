@@ -1,0 +1,58 @@
+---
+# Applies the role with a valid configuration plus the overrides in
+# postgres_cluster_test_case.vars and requires it to fail with a message
+# containing postgres_cluster_test_case.expect. Variables a case does not set
+# fall back to valid values.
+- name: "Reject {{ postgres_cluster_test_case.name }}"
+  block:
+    - name: "Apply postgres_cluster with {{ postgres_cluster_test_case.name }}"
+      ansible.builtin.include_role:
+        name: postgres_cluster
+      vars:
+        postgres_cluster_version: "{{ postgres_cluster_test_case.vars.postgres_cluster_version | default(16) }}"
+        postgres_cluster_nodes: "{{ postgres_cluster_test_case.vars.postgres_cluster_nodes | default(groups['postgres_cluster']) }}"
+        postgres_cluster_wal_directory: "{{ postgres_cluster_test_case.vars.postgres_cluster_wal_directory | default('') }}"
+        postgres_cluster_auth_method: "{{ postgres_cluster_test_case.vars.postgres_cluster_auth_method | default('scram-sha-256') }}"
+        postgres_cluster_port: "{{ postgres_cluster_test_case.vars.postgres_cluster_port | default(5432) }}"
+        postgres_cluster_manage_zookeeper: "{{ postgres_cluster_test_case.vars.postgres_cluster_manage_zookeeper | default(true) }}"
+        postgres_cluster_zookeeper_nodes: "{{ postgres_cluster_test_case.vars.postgres_cluster_zookeeper_nodes | default(groups['postgres_cluster']) }}"
+        postgres_cluster_zookeeper_connect: "{{ postgres_cluster_test_case.vars.postgres_cluster_zookeeper_connect | default([]) }}"
+        postgres_cluster_pgbackrest_repo_type: "{{ postgres_cluster_test_case.vars.postgres_cluster_pgbackrest_repo_type | default('posix') }}"
+        postgres_cluster_pgbackrest_backup_standby: "{{ postgres_cluster_test_case.vars.postgres_cluster_pgbackrest_backup_standby | default(false) }}"
+        postgres_cluster_pgbackrest_s3_bucket: "{{ postgres_cluster_test_case.vars.postgres_cluster_pgbackrest_s3_bucket | default('') }}"
+        postgres_cluster_pgbackrest_s3_region: "{{ postgres_cluster_test_case.vars.postgres_cluster_pgbackrest_s3_region | default('') }}"
+        postgres_cluster_pgbackrest_s3_key: "{{ postgres_cluster_test_case.vars.postgres_cluster_pgbackrest_s3_key | default('') }}"
+        postgres_cluster_pgbackrest_azure_account: "{{ postgres_cluster_test_case.vars.postgres_cluster_pgbackrest_azure_account | default('') }}"
+        postgres_cluster_pgbackrest_azure_container: "{{ postgres_cluster_test_case.vars.postgres_cluster_pgbackrest_azure_container | default('') }}"
+        postgres_cluster_pgbackrest_azure_key: "{{ postgres_cluster_test_case.vars.postgres_cluster_pgbackrest_azure_key | default('') }}"
+        postgres_cluster_pgbackrest_cifs_src: "{{ postgres_cluster_test_case.vars.postgres_cluster_pgbackrest_cifs_src | default('') }}"
+        postgres_cluster_ssl_enabled: "{{ postgres_cluster_test_case.vars.postgres_cluster_ssl_enabled | default(false) }}"
+        postgres_cluster_ssl_self_signed: "{{ postgres_cluster_test_case.vars.postgres_cluster_ssl_self_signed | default(false) }}"
+        postgres_cluster_ssl_cert: "{{ postgres_cluster_test_case.vars.postgres_cluster_ssl_cert | default('/etc/postgres_cluster/ssl/server.crt') }}"
+        postgres_cluster_patroni_rest_user: "{{ postgres_cluster_test_case.vars.postgres_cluster_patroni_rest_user | default('') }}"
+        postgres_cluster_pgagent_enabled: "{{ postgres_cluster_test_case.vars.postgres_cluster_pgagent_enabled | default(false) }}"
+        postgres_cluster_users: "{{ postgres_cluster_test_case.vars.postgres_cluster_users | default([]) }}"
+        postgres_cluster_databases: "{{ postgres_cluster_test_case.vars.postgres_cluster_databases | default([]) }}"
+        postgres_cluster_superuser_password: "{{ postgres_cluster_test_case.vars.postgres_cluster_superuser_password | default('molecule-superuser-secret') }}"
+        postgres_cluster_replication_password: "{{ postgres_cluster_test_case.vars.postgres_cluster_replication_password | default('molecule-replication-secret') }}"
+        postgres_cluster_rewind_password: "{{ postgres_cluster_test_case.vars.postgres_cluster_rewind_password | default('molecule-rewind-secret') }}"
+
+    - name: Fail because the role accepted invalid input
+      ansible.builtin.fail:
+        msg: "postgres_cluster accepted {{ postgres_cluster_test_case.name }}"
+
+  rescue:
+    - name: Re-raise when the role accepted invalid input
+      ansible.builtin.fail:
+        msg: "{{ ansible_failed_result.msg }}"
+      when: ansible_failed_task.name == 'Fail because the role accepted invalid input'
+
+    # A failed loop reports "One or more items failed"; the reasons are in the items.
+    - name: "Assert the failure explains {{ postgres_cluster_test_case.name }}"
+      ansible.builtin.assert:
+        that:
+          - postgres_cluster_test_case.expect in failure_text
+        fail_msg: "Expected '{{ postgres_cluster_test_case.expect }}' in: {{ failure_text }}"
+        quiet: true
+      vars:
+        failure_text: "{{ ansible_failed_result.msg }} {{ ansible_failed_result.results | default([]) | selectattr('msg', 'defined') | map(attribute='msg') | join(' ') }}"

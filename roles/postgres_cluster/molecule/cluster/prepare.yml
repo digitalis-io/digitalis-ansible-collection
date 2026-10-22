@@ -1,0 +1,47 @@
+---
+# pgBackRest reaches the standbys over SSH, so the nodes need a running sshd,
+# as any real host has.
+- name: Prepare
+  hosts: all
+  gather_facts: true
+  tasks:
+    # The Docker volume behind the shared repository outlives the containers,
+    # and a repository left over from an earlier run would make the role
+    # restore it instead of creating a new cluster.
+    - name: Empty the shared backup repository
+      ansible.builtin.shell: rm -rf /var/lib/pgbackrest/* /var/lib/pgbackrest/.[!.]*
+      changed_when: false
+      run_once: true
+
+    - name: Update the APT cache
+      ansible.builtin.apt:
+        update_cache: true
+      when: ansible_facts['os_family'] == 'Debian'
+
+    - name: Install the SSH server
+      ansible.builtin.package:
+        name: "{{ 'openssh-server' }}"
+        state: present
+
+    - name: Start sshd
+      ansible.builtin.systemd:
+        name: "{{ 'sshd' if ansible_facts['os_family'] == 'RedHat' else 'ssh' }}"
+        state: started
+        enabled: true
+
+    # PAM account checks fail for every account in privileged containers on
+    # some Docker hosts, which blocks key logins.
+    - name: Do not use PAM in sshd
+      ansible.builtin.copy:
+        content: "UsePAM no\n"
+        dest: /etc/ssh/sshd_config.d/00-molecule.conf
+        owner: root
+        group: root
+        mode: "0600"
+      notify: Restart sshd
+
+  handlers:
+    - name: Restart sshd
+      ansible.builtin.systemd:
+        name: "{{ 'sshd' if ansible_facts['os_family'] == 'RedHat' else 'ssh' }}"
+        state: restarted

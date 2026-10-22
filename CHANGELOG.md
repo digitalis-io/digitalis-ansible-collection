@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- `postgres_cluster`: new role, moved in from ar-postgres-cluster. It deploys a
+  PostgreSQL cluster under Patroni with ZooKeeper, pgBackRest, HAProxy, pgAudit
+  and pgAgent on Red Hat, Debian and Ubuntu. All variables are renamed with the
+  `postgres_cluster_` prefix and documented in `meta/argument_specs.yml`; the
+  role README has a migration table. Notable changes from the old role: Patroni
+  runs from a virtual environment, passwords have no default, the pgBackRest
+  repository type is explicit, and configuration changes reload Patroni instead
+  of restarting it. The collection now depends on `community.postgresql`,
+  `community.crypto` and `community.general`.
 - `rabbitmq`: role moved in from ansible-role-rabbitmq. The collection now
   depends on `community.rabbitmq` and `ansible.posix`.
 - `prometheus`: role moved in from ansible-role-prometheus.

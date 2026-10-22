@@ -1,0 +1,26 @@
+---
+# Two PostgreSQL nodes that use a ZooKeeper ensemble you already run (or one
+# shared by several clusters). The role installs no Java and no ZooKeeper.
+# Give every cluster on a shared ensemble its own postgres_cluster_name.
+#
+# Secrets are read from the environment of the controller:
+#   export PG_SUPERUSER_PASSWORD=... PG_REPLICATION_PASSWORD=... PG_REWIND_PASSWORD=...
+- name: Install PostgreSQL with an existing ZooKeeper ensemble
+  hosts: postgres_cluster
+  become: true
+  roles:
+    - role: digitalis.digitalis.postgres_cluster
+      vars:
+        postgres_cluster_name: billing
+        postgres_cluster_manage_zookeeper: false
+        postgres_cluster_zookeeper_connect:
+          - zk1.example.com:2181
+          - zk2.example.com:2181
+          - zk3.example.com:2181
+        postgres_cluster_superuser_password: "{{ lookup('ansible.builtin.env', 'PG_SUPERUSER_PASSWORD') }}"
+        postgres_cluster_replication_password: "{{ lookup('ansible.builtin.env', 'PG_REPLICATION_PASSWORD') }}"
+        postgres_cluster_rewind_password: "{{ lookup('ansible.builtin.env', 'PG_REWIND_PASSWORD') }}"
+        postgres_cluster_pgbackrest_repo_type: azure
+        postgres_cluster_pgbackrest_azure_account: examplebackups
+        postgres_cluster_pgbackrest_azure_container: billing-pgbackrest
+        postgres_cluster_pgbackrest_azure_key: "{{ lookup('ansible.builtin.env', 'BACKUP_AZURE_KEY') }}"

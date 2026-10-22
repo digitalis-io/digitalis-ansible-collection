@@ -1,0 +1,11 @@
+---
+_postgres_cluster_data_dir: "{{ postgres_cluster_data_directory }}/{{ postgres_cluster_version }}/main"
+_postgres_cluster_repo_types: [posix, s3, azure, cifs]
+_postgres_cluster_placeholder_passwords: [changeme, password, postgres, secret, ""]
+_postgres_cluster_java_package: "{{ postgres_cluster_java_package if postgres_cluster_java_package else _postgres_cluster_java_package_default }}"
+_postgres_cluster_pgaudit_packages: "{{ postgres_cluster_pgaudit_packages if postgres_cluster_pgaudit_packages else _postgres_cluster_pgaudit_packages_default }}"
+_postgres_cluster_zookeeper_ids: "{{ postgres_cluster_zookeeper_nodes }}"
+_postgres_cluster_ssl_dir: "{{ postgres_cluster_ssl_cert | dirname }}"
+_postgres_cluster_scheme: "{{ 'https' if postgres_cluster_ssl_enabled else 'http' }}"
+_postgres_cluster_pg_conf_hostssl: "{{ 'hostssl' if postgres_cluster_ssl_enabled else 'host' }}"
+_postgres_cluster_cifs_credentials: /root/.postgres_cluster_cifs_credentials

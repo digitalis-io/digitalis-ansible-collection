@@ -29,12 +29,18 @@ def check_vars(playbook, role, role_vars):
     for name in role_vars:
         if name.startswith(role + "_") and name not in spec:
             errors.append(f"{playbook}: {role}: undocumented variable {name}")
-    # Templated values are only known at run time, so skip them.
-    values = {
-        k: v
-        for k, v in role_vars.items()
-        if k in spec and not (isinstance(v, str) and "{{" in v)
-    }
+    # Templated values are only known at run time. A string option gets a
+    # placeholder so that required options set from a lookup count as given;
+    # other types are skipped.
+    values = {}
+    for k, v in role_vars.items():
+        if k not in spec:
+            continue
+        if isinstance(v, str) and "{{" in v:
+            if spec[k].get("type", "str") == "str":
+                values[k] = "placeholder"
+            continue
+        values[k] = v
     result = ArgumentSpecValidator(spec).validate(values)
     errors.extend(f"{playbook}: {role}: {m}" for m in result.error_messages)
     return errors

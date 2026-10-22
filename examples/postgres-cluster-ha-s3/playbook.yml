@@ -1,0 +1,61 @@
+---
+# Three nodes with ZooKeeper on each, synchronous replication, backups in an S3
+# bucket shared by all nodes, HAProxy on every node and pgAudit.
+#
+# Clients connect to any node on port 5000 (always the primary) or 5001 (the
+# standbys). Put a load balancer or a DNS name in front of the three nodes.
+#
+# Secrets are read from the environment of the controller:
+#   export PG_SUPERUSER_PASSWORD=... PG_REPLICATION_PASSWORD=... PG_REWIND_PASSWORD=...
+#   export PG_APP_PASSWORD=... PG_READONLY_PASSWORD=...
+#   export BACKUP_S3_KEY=... BACKUP_S3_SECRET=...
+- name: Install a three node PostgreSQL cluster
+  hosts: postgres_cluster
+  become: true
+  roles:
+    - role: digitalis.digitalis.postgres_cluster
+      vars:
+        postgres_cluster_version: 16
+        postgres_cluster_name: orders
+        postgres_cluster_primary: pg1.example.com
+        postgres_cluster_superuser_password: "{{ lookup('ansible.builtin.env', 'PG_SUPERUSER_PASSWORD') }}"
+        postgres_cluster_replication_password: "{{ lookup('ansible.builtin.env', 'PG_REPLICATION_PASSWORD') }}"
+        postgres_cluster_rewind_password: "{{ lookup('ansible.builtin.env', 'PG_REWIND_PASSWORD') }}"
+        postgres_cluster_data_directory: /pg_data
+        postgres_cluster_wal_directory: /pg_wal
+        postgres_cluster_parameters:
+          max_connections: 500
+          shared_buffers: 8GB
+          effective_cache_size: 24GB
+          work_mem: 32MB
+        postgres_cluster_synchronous_replication: true
+        postgres_cluster_pgbackrest_repo_type: s3
+        postgres_cluster_pgbackrest_s3_bucket: example-orders-pgbackrest
+        postgres_cluster_pgbackrest_s3_region: eu-west-2
+        postgres_cluster_pgbackrest_s3_key: "{{ lookup('ansible.builtin.env', 'BACKUP_S3_KEY') }}"
+        postgres_cluster_pgbackrest_s3_key_secret: "{{ lookup('ansible.builtin.env', 'BACKUP_S3_SECRET') }}"
+        postgres_cluster_pgbackrest_retention_full: 7
+        postgres_cluster_pgbackrest_backup_standby: true
+        postgres_cluster_haproxy_enabled: true
+        postgres_cluster_pgaudit_enabled: true
+        postgres_cluster_pgaudit_config:
+          pgaudit.log: "ddl,role,write"
+          pgaudit.log_parameter: "on"
+        # HAProxy connections reach PostgreSQL from the node address, so the
+        # node network (10.0.1.0/24) needs rules too.
+        postgres_cluster_hba:
+          - host orders app 10.0.2.0/24 scram-sha-256
+          - host orders app 10.0.1.0/24 scram-sha-256
+          - host orders readonly 10.0.3.0/24 scram-sha-256
+          - host orders readonly 10.0.1.0/24 scram-sha-256
+        postgres_cluster_users:
+          - name: app
+            password: "{{ lookup('ansible.builtin.env', 'PG_APP_PASSWORD') }}"
+            priv: CONNECT
+            db: orders
+          - name: readonly
+            password: "{{ lookup('ansible.builtin.env', 'PG_READONLY_PASSWORD') }}"
+            roles: [pg_read_all_data]
+        postgres_cluster_databases:
+          - name: orders
+            owner: app

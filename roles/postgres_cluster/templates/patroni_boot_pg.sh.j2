@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Managed by Ansible
+# Called by Patroni to bootstrap a new cluster from the latest pgBackRest backup.
+exec >> {{ postgres_cluster_log_directory }}/boot.log 2>&1
+exec /usr/bin/pgbackrest --stanza={{ postgres_cluster_pgbackrest_stanza }} --link-all restore

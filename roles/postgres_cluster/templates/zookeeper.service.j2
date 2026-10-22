@@ -1,0 +1,21 @@
+# Managed by Ansible
+[Unit]
+Description=Apache ZooKeeper
+Documentation=https://zookeeper.apache.org
+After=network.target
+
+[Service]
+Type=forking
+User=zookeeper
+Group=zookeeper
+Environment=ZOO_LOG_DIR={{ postgres_cluster_zookeeper_data_dir }}/logs
+Environment=ZOOPIDFILE={{ postgres_cluster_zookeeper_data_dir }}/zookeeper_server.pid
+ExecStart={{ postgres_cluster_zookeeper_install_dir }}/bin/zkServer.sh start {{ postgres_cluster_zookeeper_conf_dir }}/zoo.cfg
+ExecStop={{ postgres_cluster_zookeeper_install_dir }}/bin/zkServer.sh stop {{ postgres_cluster_zookeeper_conf_dir }}/zoo.cfg
+PIDFile={{ postgres_cluster_zookeeper_data_dir }}/zookeeper_server.pid
+WorkingDirectory={{ postgres_cluster_zookeeper_data_dir }}
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
