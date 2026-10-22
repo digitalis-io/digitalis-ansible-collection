@@ -47,6 +47,7 @@ Patroni keeps one node as the primary and the others as streaming standbys. When
 
 - Target hosts with systemd, root access (`become: true`), outbound HTTPS to the PostgreSQL package repositories and `archive.apache.org` (or mirrors, see below) and an IPv4 address on the default route
 - Red Hat Enterprise Linux hosts need a subscription for the base repositories; the role adds the PGDG repository itself
+- The role runs some tasks as the unprivileged `postgres` user (`become_user`). For those tasks to work either enable SSH pipelining on the controller (`pipelining = True` under `[ssh_connection]` in `ansible.cfg`) or install `acl` on the target hosts. Without one of these Ansible cannot hand the module temp files to `postgres` and fails with `Failed to create remote module tmp path ... Permission denied` under `/tmp/.ansible`. Pipelining is recommended; it also speeds runs.
 
 ### Supported platforms
 
@@ -507,6 +508,7 @@ The scenarios set `ansible_become_method: su`: on some Docker hosts (for example
 
 | Symptom | Cause and fix |
 |---------|---------------|
+| `Failed to create remote module tmp path ... Permission denied` under `/tmp/.ansible` | A `become_user: postgres` task cannot access the module temp files. Enable `pipelining = True` under `[ssh_connection]` in `ansible.cfg`, or install `acl` on the targets. A stale root-owned `/tmp/.ansible` from an earlier run can persist: remove it with `ansible postgres_cluster -b -m file -a "path=/tmp/.ansible state=absent"`. |
 | `postgres_cluster_superuser_password must be set to a secret ...` | A required password is missing, shorter than 8 characters or a placeholder. Set all three passwords. |
 | `postgres_cluster_nodes must list the inventory hostnames ...` | The host is not in the `postgres_cluster` group (or in `postgres_cluster_nodes`). The role runs only on cluster members. |
 | `Wait for the first node to become the primary` times out | Patroni could not start. Run `journalctl -u patroni` on the primary node; typical causes are an unreachable ZooKeeper (port 2181), a wrong `postgres_cluster_address` or a full disk. |
