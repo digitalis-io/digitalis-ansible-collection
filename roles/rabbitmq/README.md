@@ -207,19 +207,20 @@ Generated from `meta/argument_specs.yml`; run `scripts/generate-docs.sh` to refr
 | `rabbitmq_home` | path | no |  | Home directory of the `rabbitmq` user, where the Erlang cookie is written. Falls back to `/var/lib/rabbitmq`. |
 | `rabbitmq_apt_arch` | str | no | `{{ ansible_architecture \| replace('x86_64', 'amd64') \| replace('aarch64', 'arm64') }}` | APT architecture (Debian and Ubuntu only). |
 | `rabbitmq_apt_key_url` | str | no | `https://keys.openpgp.org/vks/v1/by-fingerprint/0A9AF2115F4687BD29803A206B73A36E6026DFCA` | URL of the RabbitMQ team OpenPGP key (Debian and Ubuntu only). |
-| `rabbitmq_apt_key_path` | path | no | `/usr/share/keyrings/com.rabbitmq.team.gpg` | Path the signing key is written to (Debian and Ubuntu only). |
+| `rabbitmq_apt_key_path` | path | no | `/usr/share/keyrings/com.rabbitmq.team.asc` | Path the signing key is written to (Debian and Ubuntu only). |
 | `rabbitmq_apt_repos` | list of dict | no | `[{"type": "erlang", "url": "https://deb1.rabbitmq.com/rabbitmq-erlang"}, {"type": "erlang", "url": "https://deb2.rabbitmq.com/rabbitmq-erlang"}, {"type": "server", "url": "https://deb1.rabbitmq.com/rabbitmq-server"}, {"type": "server", "url": "https://deb2.rabbitmq.com/rabbitmq-server"}]` | APT repositories to configure (Debian and Ubuntu only). Defaults to the RabbitMQ Erlang and server mirrors, see `defaults/main.yml`. |
 | `rabbitmq_erlang_version_map` | dict | no | `{"bookworm": "1:27.3.4.9-1", "jammy": "1:27.3.4.9-1", "noble": "1:27.3.4.9-1", "resolute": "1:27.3.4.6+dfsg-1ubuntu0.2", "trixie": "1:27.3.4.9-1"}` | Maps the distribution codename to the pinned Erlang package version (Debian and Ubuntu only). See `defaults/main.yml` for the shipped map. |
 | `rabbitmq_erlang_version` | str | no | `{{ rabbitmq_erlang_version_map.get(ansible_distribution_release, '1:27.2-1') }}` | Erlang package version to install (Debian and Ubuntu only). |
 | `rabbitmq_erlang_packages` | list of str | no | `["erlang-asn1={{ rabbitmq_erlang_version }}", "erlang-base={{ rabbitmq_erlang_version }}", "erlang-crypto={{ rabbitmq_erlang_version }}", "erlang-eldap={{ rabbitmq_erlang_version }}", "erlang-ftp={{ rabbitmq_erlang_version }}", "erlang-inets={{ rabbitmq_erlang_version }}", "erlang-mnesia={{ rabbitmq_erlang_version }}", "erlang-os-mon={{ rabbitmq_erlang_version }}", "erlang-parsetools={{ rabbitmq_erlang_version }}", "erlang-public-key={{ rabbitmq_erlang_version }}", "erlang-runtime-tools={{ rabbitmq_erlang_version }}", "erlang-snmp={{ rabbitmq_erlang_version }}", "erlang-ssl={{ rabbitmq_erlang_version }}", "erlang-syntax-tools={{ rabbitmq_erlang_version }}", "erlang-tftp={{ rabbitmq_erlang_version }}", "erlang-tools={{ rabbitmq_erlang_version }}", "erlang-xmerl={{ rabbitmq_erlang_version }}"]` | Erlang packages to install (Debian and Ubuntu only). Defaults to the 17 `erlang-*` packages RabbitMQ requires, pinned to `rabbitmq_erlang_version`. |
 | `rabbitmq_erlang_cookie` | str | no | `""` | Shared secret for cluster node authentication. Required for clusters and not written when empty. |
+| `rabbitmq_erlang_version_rpm` | str | no | `""` | Erlang package version to pin on Red Hat family hosts (Red Hat only). Empty installs the latest available version. Use the full RPM version string, for example `26.2.5-1.el9`. |
 | `rabbitmq_cluster_members` | list of str | no | `[]` | Cluster node names, for example `node1`. Empty creates a standalone node. |
 | `rabbitmq_cluster_name` | str | no |  | Cluster name, for example `rabbit.example.com`. |
 | `rabbitmq_cluster_tags` | dict | no | `{}` | Key/value tags applied to the cluster. |
 | `rabbitmq_cluster_partition_handling` | str | no |  | Network partition handling strategy. Falls back to `pause_minority`. One of `pause_minority`, `pause_if_all_down`, `autoheal`, `ignore`. |
 | `rabbitmq_cluster_partition_handling_pause_if_all_down` | str | no |  | Recovery strategy used when `rabbitmq_cluster_partition_handling` is `pause_if_all_down`. Falls back to `autoheal`. |
 | `rabbitmq_ssl` | dict | no |  | TLS configuration. When defined, TLS is enabled and the plain-text AMQP listener is disabled. |
-| `rabbitmq_ssl_ciphers` | list of str | no | `["ECDHE-ECDSA-AES256-GCM-SHA384", "ECDHE-RSA-AES256-GCM-SHA384", "ECDH-ECDSA-AES256-GCM-SHA384", "ECDH-RSA-AES256-GCM-SHA384", "DHE-RSA-AES256-GCM-SHA384", "DHE-DSS-AES256-GCM-SHA384", "ECDHE-ECDSA-AES128-GCM-SHA256", "ECDHE-RSA-AES128-GCM-SHA256", "ECDH-ECDSA-AES128-GCM-SHA256", "ECDH-RSA-AES128-GCM-SHA256", "DHE-RSA-AES128-GCM-SHA256", "DHE-DSS-AES128-GCM-SHA256"]` | Allowed TLS cipher suites. Defaults to twelve AES-GCM suites, see `defaults/main.yml`. |
+| `rabbitmq_ssl_ciphers` | list of str | no | `["TLS_AES_256_GCM_SHA384", "TLS_AES_128_GCM_SHA256", "TLS_CHACHA20_POLY1305_SHA256", "ECDHE-ECDSA-AES256-GCM-SHA384", "ECDHE-RSA-AES256-GCM-SHA384", "ECDH-ECDSA-AES256-GCM-SHA384", "ECDH-RSA-AES256-GCM-SHA384", "DHE-RSA-AES256-GCM-SHA384", "DHE-DSS-AES256-GCM-SHA384", "ECDHE-ECDSA-AES128-GCM-SHA256", "ECDHE-RSA-AES128-GCM-SHA256", "ECDH-ECDSA-AES128-GCM-SHA256", "ECDH-RSA-AES128-GCM-SHA256", "DHE-RSA-AES128-GCM-SHA256", "DHE-DSS-AES128-GCM-SHA256"]` | Allowed TLS cipher suites. Defaults to twelve AES-GCM suites, see `defaults/main.yml`. |
 | `rabbitmq_oauth2_issuer` | str | no |  | OIDC issuer URL. Setting it enables the OAuth2 backend and requires `rabbitmq_oauth2_client_id` and `rabbitmq_oauth2_client_secret`. |
 | `rabbitmq_oauth2_client_id` | str | no |  | OAuth2 client ID. |
 | `rabbitmq_oauth2_client_secret` | str | no |  | OAuth2 client secret. |
@@ -243,6 +244,9 @@ Generated from `meta/argument_specs.yml`; run `scripts/generate-docs.sh` to refr
 | `rabbitmq_haproxy_mgmt_port` | int | no | `15670` | HAProxy frontend port for the management UI. |
 | `rabbitmq_haproxy_mgmt_ssl_port` | int | no | `15673` | HAProxy frontend port for the management UI over TLS. |
 | `rabbitmq_haproxy_stats_port` | int | no | `1936` | HAProxy statistics port. |
+| `rabbitmq_haproxy_stats_enabled` | bool | no | `false` | Enable the HAProxy statistics page. Disabled by default; set to `true` and supply `rabbitmq_haproxy_stats_user` and `rabbitmq_haproxy_stats_password` to expose a protected page. |
+| `rabbitmq_haproxy_stats_user` | str | no |  | Username for the HAProxy statistics page. Required when `rabbitmq_haproxy_stats_enabled` is `true`. |
+| `rabbitmq_haproxy_stats_password` | str | no |  | Password for the HAProxy statistics page. Required when `rabbitmq_haproxy_stats_enabled` is `true`. |
 | `rabbitmq_haproxy_stats_address` | str | no | `127.0.0.1` | Address the HAProxy statistics page binds to. |
 | `rabbitmq_haproxy_log_address` | str | no | `127.0.0.1` | Address HAProxy sends logs to. |
 | `rabbitmq_haproxy_group` | str | no | `rabbitmq` | Inventory group whose hosts become HAProxy backends. |
@@ -266,6 +270,7 @@ Generated from `meta/argument_specs.yml`; run `scripts/generate-docs.sh` to refr
 | `verify` | str | no | `verify_none` | Peer verification mode for AMQP clients. One of `verify_none`, `verify_peer`. |
 | `versions` | raw | no | `tlsv1.2` | TLS protocol version or list of versions. |
 | `internode_encryption` | bool | no | `false` | Encrypt inter-node cluster traffic. |
+| `internode_verify` | str | no | `verify_peer` | Peer verification mode for inter-node TLS. Defaults to `verify_peer` because all nodes share the same CA. One of `verify_none`, `verify_peer`. |
 | `password` | str | no |  | Private key password. Accepted for compatibility, currently unused. |
 
 ### `rabbitmq_admin_permissions` options

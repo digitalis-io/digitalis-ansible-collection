@@ -1,7 +1,7 @@
 ---
 - name: Manage RabbitMQ users
   community.rabbitmq.rabbitmq_user:
-    node: "{{ 'rabbit@' + ansible_fqdn if rabbitmq_use_longname | default(false) else rabbitmq_nodename }}"
+    node: "{{ _rabbitmq_nodename }}"
     user: "{{ item.name }}"
     password: "{{ item.password | default(omit) }}"
     vhost: "{{ item.vhost | default('/') }}"

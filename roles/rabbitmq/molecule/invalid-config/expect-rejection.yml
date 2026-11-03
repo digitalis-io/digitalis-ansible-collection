@@ -1,0 +1,37 @@
+---
+- name: "Reject {{ rabbitmq_test_case.name }}"
+  block:
+    - name: "Apply rabbitmq with {{ rabbitmq_test_case.name }}"
+      ansible.builtin.include_role:
+        name: rabbitmq
+      vars:
+        rabbitmq_admin_password: "{{ rabbitmq_test_case.vars.rabbitmq_admin_password | default('molecule-only-password') }}"
+        rabbitmq_plugins: "{{ rabbitmq_test_case.vars.rabbitmq_plugins | default(['rabbitmq_management', 'rabbitmq_prometheus']) }}"
+        rabbitmq_cluster_members: "{{ rabbitmq_test_case.vars.rabbitmq_cluster_members | default([]) }}"
+        rabbitmq_erlang_cookie: "{{ rabbitmq_test_case.vars.rabbitmq_erlang_cookie | default('') }}"
+        rabbitmq_oauth2_issuer: "{{ rabbitmq_test_case.vars.rabbitmq_oauth2_issuer | default(omit) }}"
+        rabbitmq_oauth2_client_id: "{{ rabbitmq_test_case.vars.rabbitmq_oauth2_client_id | default(omit) }}"
+        rabbitmq_oauth2_client_secret: "{{ rabbitmq_test_case.vars.rabbitmq_oauth2_client_secret | default(omit) }}"
+        rabbitmq_use_longname: "{{ rabbitmq_test_case.vars.rabbitmq_use_longname | default(false) }}"
+        rabbitmq_domain: "{{ rabbitmq_test_case.vars.rabbitmq_domain | default(omit) }}"
+
+    - name: Fail because the role accepted invalid input
+      ansible.builtin.fail:
+        msg: "rabbitmq accepted {{ rabbitmq_test_case.name }}"
+
+  rescue:
+    - name: Re-raise when the role accepted invalid input
+      ansible.builtin.fail:
+        msg: "{{ ansible_failed_result.msg }}"
+      when: ansible_failed_task.name == 'Fail because the role accepted invalid input'
+
+    - name: "Assert the failure explains {{ rabbitmq_test_case.name }}"
+      ansible.builtin.assert:
+        that:
+          - rabbitmq_test_case.expect in failure_text
+        fail_msg: "Expected '{{ rabbitmq_test_case.expect }}' in: {{ failure_text }}"
+        quiet: true
+      vars:
+        failure_text: >-
+          {{ ansible_failed_result.msg }}
+          {{ ansible_failed_result.results | default([]) | selectattr('msg', 'defined') | map(attribute='msg') | join(' ') }}

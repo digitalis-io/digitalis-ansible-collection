@@ -13,6 +13,7 @@ defaults
         timeout client 50000
         timeout server 50000
 
+{% if rabbitmq_haproxy_stats_enabled | default(false) %}
 listen stats
         bind {{ rabbitmq_haproxy_stats_address }}:{{ rabbitmq_haproxy_stats_port }}
         mode http
@@ -20,7 +21,11 @@ listen stats
         stats hide-version
         stats realm Haproxy\ Statistics
         stats uri /
+{% if rabbitmq_haproxy_stats_user is defined and rabbitmq_haproxy_stats_password is defined %}
+        stats auth {{ rabbitmq_haproxy_stats_user }}:{{ rabbitmq_haproxy_stats_password }}
+{% endif %}
 
+{% endif %}
 listen rabbitmq
         bind {{ ansible_host }}:{{ rabbitmq_haproxy_amqp_ssl_port if rabbitmq_ssl is defined else rabbitmq_haproxy_amqp_port }}
         mode            tcp

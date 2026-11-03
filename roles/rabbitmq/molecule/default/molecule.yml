@@ -28,5 +28,8 @@ provisioner:
           schedule: "0 0 * * *"
           directory: /var/backups/rabbitmq
           retention_days: 7
+        rabbitmq_queues:
+          - name: test001
+            create_dlq: true
 verifier:
   name: ansible

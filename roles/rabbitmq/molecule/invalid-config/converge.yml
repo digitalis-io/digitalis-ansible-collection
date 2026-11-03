@@ -1,0 +1,30 @@
+---
+- name: Converge
+  hosts: all
+  gather_facts: true
+  vars:
+    rabbitmq_test_cases:
+      - name: an empty admin password
+        vars: { rabbitmq_admin_password: "" }
+        expect: "rabbitmq_admin_password must be set"
+      - name: plugins as a string
+        vars: { rabbitmq_plugins: "rabbitmq_management" }
+        expect: "rabbitmq_plugins must be a list"
+      - name: plugins list without management
+        vars: { rabbitmq_plugins: [rabbitmq_prometheus] }
+        expect: "rabbitmq_plugins must be a list including rabbitmq_management"
+      - name: a cluster without an Erlang cookie
+        vars: { rabbitmq_cluster_members: [node1, node2], rabbitmq_erlang_cookie: "" }
+        expect: "clusters need rabbitmq_erlang_cookie"
+      - name: OAuth2 issuer without client credentials
+        vars: { rabbitmq_oauth2_issuer: "https://idp.example.com/realms/test" }
+        expect: "OAuth2 needs client_id and client_secret"
+      - name: longname without a domain on Docker
+        vars: { rabbitmq_use_longname: true }
+        expect: "longname mode requires rabbitmq_domain"
+  tasks:
+    - name: Run each rejection test case
+      ansible.builtin.include_tasks: expect-rejection.yml
+      vars:
+        rabbitmq_test_case: "{{ item }}"
+      loop: "{{ rabbitmq_test_cases }}"

@@ -129,7 +129,7 @@ argument_specs:
         description: URL of the RabbitMQ team OpenPGP key (Debian and Ubuntu only).
       rabbitmq_apt_key_path:
         type: path
-        default: /usr/share/keyrings/com.rabbitmq.team.gpg
+        default: /usr/share/keyrings/com.rabbitmq.team.asc
         description: Path the signing key is written to (Debian and Ubuntu only).
       rabbitmq_apt_repos:
         type: list
@@ -193,6 +193,10 @@ argument_specs:
         default: ""
         no_log: true
         description: Shared secret for cluster node authentication. Required for clusters and not written when empty.
+      rabbitmq_erlang_version_rpm:
+        type: str
+        default: ""
+        description: Erlang package version to pin on Red Hat family hosts (Red Hat only). Empty installs the latest available version. Use the full RPM version string, for example C(26.2.5-1.el9).
       rabbitmq_cluster_members:
         type: list
         elements: str
@@ -241,6 +245,11 @@ argument_specs:
             type: bool
             default: false
             description: Encrypt inter-node cluster traffic.
+          internode_verify:
+            type: str
+            default: verify_peer
+            choices: [verify_none, verify_peer]
+            description: Peer verification mode for inter-node TLS. Defaults to C(verify_peer) because all nodes share the same CA.
           password:
             type: str
             no_log: true
@@ -250,6 +259,9 @@ argument_specs:
         elements: str
         description: Allowed TLS cipher suites. Defaults to twelve AES-GCM suites, see C(defaults/main.yml).
         default:
+          - TLS_AES_256_GCM_SHA384
+          - TLS_AES_128_GCM_SHA256
+          - TLS_CHACHA20_POLY1305_SHA256
           - ECDHE-ECDSA-AES256-GCM-SHA384
           - ECDHE-RSA-AES256-GCM-SHA384
           - ECDH-ECDSA-AES256-GCM-SHA384
@@ -468,6 +480,17 @@ argument_specs:
         type: int
         default: 1936
         description: HAProxy statistics port.
+      rabbitmq_haproxy_stats_enabled:
+        type: bool
+        default: false
+        description: Enable the HAProxy statistics page. Disabled by default; set to C(true) and supply C(rabbitmq_haproxy_stats_user) and C(rabbitmq_haproxy_stats_password) to expose a protected page.
+      rabbitmq_haproxy_stats_user:
+        type: str
+        description: Username for the HAProxy statistics page. Required when C(rabbitmq_haproxy_stats_enabled) is C(true).
+      rabbitmq_haproxy_stats_password:
+        type: str
+        no_log: true
+        description: Password for the HAProxy statistics page. Required when C(rabbitmq_haproxy_stats_enabled) is C(true).
       rabbitmq_haproxy_stats_address:
         type: str
         default: "127.0.0.1"

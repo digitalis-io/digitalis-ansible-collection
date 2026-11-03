@@ -63,7 +63,7 @@ prometheus.ssl.port       = {{ rabbitmq_prometheus_ssl_port }}
 prometheus.ssl.cacertfile = {{ rabbitmq_ssl.ca }}
 prometheus.ssl.certfile   = {{ rabbitmq_ssl.cert }}
 prometheus.ssl.keyfile    = {{ rabbitmq_ssl.key }}
-prometheus.tcp.listener   = none
+prometheus.tcp.listener_enabled = false
 {% endif %}
 
 queue_leader_locator = {{ rabbitmq_queue_leader_locator | default('balanced') }}
@@ -71,7 +71,11 @@ cluster_partition_handling = {{ rabbitmq_cluster_partition_handling | default('p
 {% if rabbitmq_cluster_partition_handling | default('pause_minority') == 'pause_if_all_down' %}
 cluster_partition_handling.pause_if_all_down.recover = {{ rabbitmq_cluster_partition_handling_pause_if_all_down | default('autoheal') }}
 {% for node in rabbitmq_cluster_members %}
+{% if rabbitmq_use_longname | default(false) %}
+cluster_partition_handling.pause_if_all_down.nodes.{{ loop.index }} = rabbit@{{ node }}.{{ rabbitmq_domain | default(ansible_domain) | default('internal') }}
+{% else %}
 cluster_partition_handling.pause_if_all_down.nodes.{{ loop.index }} = rabbit@{{ node }}
+{% endif %}
 {% endfor %}
 {% endif %}
 

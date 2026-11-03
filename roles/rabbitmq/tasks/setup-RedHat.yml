@@ -27,8 +27,8 @@
 - name: Install Erlang and RabbitMQ server
   ansible.builtin.dnf:
     name:
-      - erlang
-      - rabbitmq-server
+      - "erlang{{ '-' ~ rabbitmq_erlang_version_rpm if rabbitmq_erlang_version_rpm | default('') else '' }}"
+      - "rabbitmq-server-{{ rabbitmq_version }}"
     state: present
     update_cache: true
   tags:

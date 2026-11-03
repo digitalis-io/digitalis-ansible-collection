@@ -1,5 +1,5 @@
 {% if rabbitmq_use_longname | default(false) %}
-RABBITMQ_NODENAME=rabbit@{{ ansible_fqdn }}
+RABBITMQ_NODENAME=rabbit@{{ ansible_hostname }}.{{ rabbitmq_domain | default(ansible_domain) | default('internal') }}
 RABBITMQ_USE_LONGNAME=true
 {% else %}
 RABBITMQ_NODENAME={{ rabbitmq_nodename }}

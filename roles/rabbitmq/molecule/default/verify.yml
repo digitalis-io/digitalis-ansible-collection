@@ -52,6 +52,38 @@
           - rabbitmq_verify_cluster_status.rc == 0
         fail_msg: "rabbitmqctl cluster_status failed"
 
+    - name: Check queue test001 via management API
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:15672/api/queues/%2F/test001"
+        user: admin
+        password: "{{ rabbitmq_admin_password }}"
+        force_basic_auth: true
+        status_code: 200
+      register: rabbitmq_verify_queue
+      no_log: true
+
+    - name: Assert test001 has dead-letter routing key
+      ansible.builtin.assert:
+        that:
+          - rabbitmq_verify_queue.json.arguments['x-dead-letter-routing-key'] == 'test001-dlq'
+        fail_msg: "test001 is missing x-dead-letter-routing-key"
+
+    - name: Check dead-letter queue test001-dlq via management API
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:15672/api/queues/%2F/test001-dlq"
+        user: admin
+        password: "{{ rabbitmq_admin_password }}"
+        force_basic_auth: true
+        status_code: 200
+      register: rabbitmq_verify_dlq
+      no_log: true
+
+    - name: Assert test001-dlq exists
+      ansible.builtin.assert:
+        that:
+          - rabbitmq_verify_dlq.json.name == 'test001-dlq'
+        fail_msg: "dead-letter queue test001-dlq was not created"
+
     - name: Stat backup cron file
       ansible.builtin.stat:
         path: /etc/cron.d/rabbitmq-backup
