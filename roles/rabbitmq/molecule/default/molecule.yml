@@ -23,5 +23,10 @@ provisioner:
       instance:
         ansible_python_interpreter: auto
         rabbitmq_admin_password: molecule-only-password
+        rabbitmq_backup_cronjob:
+          enabled: true
+          schedule: "0 0 * * *"
+          directory: /var/backups/rabbitmq
+          retention_days: 7
 verifier:
   name: ansible
