@@ -63,7 +63,7 @@ prometheus.ssl.port       = {{ rabbitmq_prometheus_ssl_port }}
 prometheus.ssl.cacertfile = {{ rabbitmq_ssl.ca }}
 prometheus.ssl.certfile   = {{ rabbitmq_ssl.cert }}
 prometheus.ssl.keyfile    = {{ rabbitmq_ssl.key }}
-prometheus.tcp.listener_enabled = false
+prometheus.tcp.listener = none
 {% endif %}
 
 queue_leader_locator = {{ rabbitmq_queue_leader_locator | default('balanced') }}
