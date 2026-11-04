@@ -216,10 +216,21 @@ argument_specs:
       rabbitmq_cluster_partition_handling_pause_if_all_down:
         type: str
         description: Recovery strategy used when C(rabbitmq_cluster_partition_handling) is C(pause_if_all_down). Falls back to C(autoheal).
+      rabbitmq_ssl_dir:
+        type: path
+        default: /etc/rabbitmq/ssl
+        description: Directory created by the role when C(rabbitmq_ssl.self_signed) is true.
       rabbitmq_ssl:
         type: dict
         description: TLS configuration. When defined, TLS is enabled and the plain-text AMQP listener is disabled.
         options:
+          self_signed:
+            type: bool
+            default: false
+            description: >
+              Generate a self-signed certificate on the target host using C(community.crypto).
+              The key, cert, and ca paths are created under C(rabbitmq_ssl_dir).
+              Set C(internode_verify) to C(verify_none) when each node has its own self-signed certificate.
           key:
             type: path
             required: true
@@ -230,8 +241,7 @@ argument_specs:
             description: Path to the certificate on the target host.
           ca:
             type: path
-            required: true
-            description: Path to the CA certificate on the target host.
+            description: Path to the CA certificate on the target host. Defaults to the value of C(cert) when C(self_signed) is true.
           verify:
             type: str
             default: verify_none

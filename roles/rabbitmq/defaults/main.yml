@@ -111,12 +111,16 @@ rabbitmq_oauth2_verify_peer: true
 
 rabbitmq_cluster_tags: {}
 
+rabbitmq_ssl_dir: /etc/rabbitmq/ssl
+
 # rabbitmq_ssl:
-#   key: /etc/rabbitmq/server.key
-#   cert: /etc/rabbitmq/server.crt
-#   ca: /etc/rabbitmq/ca.pem
+#   key: /etc/rabbitmq/ssl/server.key
+#   cert: /etc/rabbitmq/ssl/server.crt
+#   ca: /etc/rabbitmq/ssl/ca.pem
+#   self_signed: false       # generate a self-signed cert; set key/cert/ca paths above
 #   password: ""
 #   internode_encryption: false
+#   internode_verify: verify_peer
 
 rabbitmq_sysctl:
   fs.file-max: 200000

@@ -85,6 +85,13 @@
         mode: "0644"
       notify: Reload systemd daemon
 
+- name: Generate self-signed TLS certificates
+  ansible.builtin.import_tasks: tls.yml
+  when: rabbitmq_ssl is defined and rabbitmq_ssl.self_signed | default(false)
+  tags:
+    - rabbitmq
+    - tls
+
 - name: RabbitMQ main config
   tags:
     - rabbitmq
