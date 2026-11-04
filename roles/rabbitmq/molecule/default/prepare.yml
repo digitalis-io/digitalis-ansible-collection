@@ -1,0 +1,12 @@
+---
+- name: Prepare
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Install Python requests library for community.rabbitmq modules
+      ansible.builtin.package:
+        name: >-
+          {{ 'python3-requests'
+             if ansible_os_family == 'Debian'
+             else 'python3-requests' }}
+        state: present
