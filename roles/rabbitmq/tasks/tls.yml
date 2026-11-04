@@ -27,6 +27,7 @@
              if ansible_default_ipv4.address is defined else [])) | unique }}
   register: _rabbitmq_tls_csr
   changed_when: false
+  check_mode: false
 
 - name: Create self-signed RabbitMQ TLS certificate
   community.crypto.x509_certificate:
@@ -38,6 +39,7 @@
     owner: rabbitmq
     group: rabbitmq
     mode: "0644"
+  when: not ansible_check_mode
   notify: Restart rabbitmq
 
 - name: Set CA to self-signed certificate

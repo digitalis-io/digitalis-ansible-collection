@@ -9,11 +9,13 @@
       - rabbitmq_oauth2_issuer is not defined or (rabbitmq_oauth2_client_id is defined and rabbitmq_oauth2_client_secret is defined)
       - not (rabbitmq_use_longname | default(false)) or (rabbitmq_domain is defined and rabbitmq_domain | length > 0) or ansible_domain | length > 0
       - ansible_os_family != 'Debian' or ansible_distribution_release in rabbitmq_erlang_version_map
+      - rabbitmq_ssl is not defined or (rabbitmq_ssl.self_signed | default(false)) or rabbitmq_ssl.ca is defined
     fail_msg: >-
       rabbitmq_admin_password must be set; rabbitmq_plugins must be a list including rabbitmq_management;
       clusters need rabbitmq_erlang_cookie; OAuth2 needs client_id and client_secret;
       longname mode requires rabbitmq_domain or a resolvable FQDN;
-      ansible_distribution_release is not in rabbitmq_erlang_version_map, add an entry before deploying
+      ansible_distribution_release is not in rabbitmq_erlang_version_map, add an entry before deploying;
+      rabbitmq_ssl.ca is required when rabbitmq_ssl is defined and self_signed is false
     quiet: true
   tags:
     - always

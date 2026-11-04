@@ -3,12 +3,12 @@
     {cacertfile, "{{ rabbitmq_ssl.ca }}"},
     {certfile,   "{{ rabbitmq_ssl.cert }}"},
     {keyfile,    "{{ rabbitmq_ssl.key }}"},
-    {verify, {{ rabbitmq_ssl.internode_verify | default('verify_peer') }}}
+    {verify, {{ rabbitmq_ssl.internode_verify | default('verify_none' if rabbitmq_ssl.self_signed | default(false) else 'verify_peer') }}}
   ]},
   {client, [
     {cacertfile, "{{ rabbitmq_ssl.ca }}"},
     {certfile,   "{{ rabbitmq_ssl.cert }}"},
     {keyfile,    "{{ rabbitmq_ssl.key }}"},
-    {verify, {{ rabbitmq_ssl.internode_verify | default('verify_peer') }}}
+    {verify, {{ rabbitmq_ssl.internode_verify | default('verify_none' if rabbitmq_ssl.self_signed | default(false) else 'verify_peer') }}}
   ]}
 ].

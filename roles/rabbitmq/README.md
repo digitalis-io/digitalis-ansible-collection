@@ -221,7 +221,7 @@ Generated from `meta/argument_specs.yml`; run `scripts/generate-docs.sh` to refr
 | `rabbitmq_cluster_partition_handling_pause_if_all_down` | str | no |  | Recovery strategy used when `rabbitmq_cluster_partition_handling` is `pause_if_all_down`. Falls back to `autoheal`. |
 | `rabbitmq_ssl_dir` | path | no | `/etc/rabbitmq/ssl` | Directory created by the role when `rabbitmq_ssl.self_signed` is true. |
 | `rabbitmq_ssl` | dict | no |  | TLS configuration. When defined, TLS is enabled and the plain-text AMQP listener is disabled. |
-| `rabbitmq_ssl_ciphers` | list of str | no | `["TLS_AES_256_GCM_SHA384", "TLS_AES_128_GCM_SHA256", "TLS_CHACHA20_POLY1305_SHA256", "ECDHE-ECDSA-AES256-GCM-SHA384", "ECDHE-RSA-AES256-GCM-SHA384", "ECDH-ECDSA-AES256-GCM-SHA384", "ECDH-RSA-AES256-GCM-SHA384", "DHE-RSA-AES256-GCM-SHA384", "DHE-DSS-AES256-GCM-SHA384", "ECDHE-ECDSA-AES128-GCM-SHA256", "ECDHE-RSA-AES128-GCM-SHA256", "ECDH-ECDSA-AES128-GCM-SHA256", "ECDH-RSA-AES128-GCM-SHA256", "DHE-RSA-AES128-GCM-SHA256", "DHE-DSS-AES128-GCM-SHA256"]` | Allowed TLS cipher suites. Defaults to twelve AES-GCM suites, see `defaults/main.yml`. |
+| `rabbitmq_ssl_ciphers` | list of str | no | `["TLS_AES_256_GCM_SHA384", "TLS_AES_128_GCM_SHA256", "TLS_CHACHA20_POLY1305_SHA256", "ECDHE-ECDSA-AES256-GCM-SHA384", "ECDHE-RSA-AES256-GCM-SHA384", "ECDH-ECDSA-AES256-GCM-SHA384", "ECDH-RSA-AES256-GCM-SHA384", "DHE-RSA-AES256-GCM-SHA384", "DHE-DSS-AES256-GCM-SHA384", "ECDHE-ECDSA-AES128-GCM-SHA256", "ECDHE-RSA-AES128-GCM-SHA256", "ECDH-ECDSA-AES128-GCM-SHA256", "ECDH-RSA-AES128-GCM-SHA256", "DHE-RSA-AES128-GCM-SHA256", "DHE-DSS-AES128-GCM-SHA256"]` | Allowed TLS cipher suites. Defaults to three TLS 1.3 suites and twelve TLS 1.2 AES-GCM suites; see `defaults/main.yml`. |
 | `rabbitmq_oauth2_issuer` | str | no |  | OIDC issuer URL. Setting it enables the OAuth2 backend and requires `rabbitmq_oauth2_client_id` and `rabbitmq_oauth2_client_secret`. |
 | `rabbitmq_oauth2_client_id` | str | no |  | OAuth2 client ID. |
 | `rabbitmq_oauth2_client_secret` | str | no |  | OAuth2 client secret. |
@@ -265,7 +265,7 @@ Generated from `meta/argument_specs.yml`; run `scripts/generate-docs.sh` to refr
 
 | Variable | Type | Required | Default | Description |
 |----------|------|----------|---------|-------------|
-| `self_signed` | bool | no | `false` | Generate a self-signed certificate on the target host using `community.crypto`. The key, cert, and ca paths are created under `rabbitmq_ssl_dir`. Set `internode_verify` to `verify_none` when each node has its own self-signed certificate. |
+| `self_signed` | bool | no | `false` | Generate a self-signed certificate on the target host using `community.crypto`. The role creates `rabbitmq_ssl_dir` and writes the key and cert at the paths set in `key` and `cert`. The `ca` path defaults to the cert path. `internode_verify` defaults to `verify_none` for self-signed clusters. |
 | `key` | path | yes |  | Path to the private key on the target host. |
 | `cert` | path | yes |  | Path to the certificate on the target host. |
 | `ca` | path | no |  | Path to the CA certificate on the target host. Defaults to the value of `cert` when `self_signed` is true. |

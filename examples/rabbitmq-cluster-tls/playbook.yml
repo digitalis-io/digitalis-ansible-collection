@@ -1,0 +1,29 @@
+---
+# Three-node RabbitMQ cluster with self-signed TLS.
+# Each node generates its own certificate; inter-node TLS uses verify_none
+# because there is no shared CA. For production, provide your own CA-signed
+# certificates and remove rabbitmq_ssl.self_signed.
+#
+# Passwords are read from the environment of the controller:
+#   export RABBITMQ_ADMIN_PASSWORD=...
+#   export RABBITMQ_ERLANG_COOKIE=...
+- name: Install a three-node RabbitMQ cluster with TLS
+  hosts: rabbitmq
+  become: true
+  roles:
+    - role: digitalis.digitalis.rabbitmq
+      vars:
+        rabbitmq_version: "4.2.5"
+        rabbitmq_admin_user: admin
+        rabbitmq_admin_password: "{{ lookup('ansible.builtin.env', 'RABBITMQ_ADMIN_PASSWORD') }}"
+        rabbitmq_erlang_cookie: "{{ lookup('ansible.builtin.env', 'RABBITMQ_ERLANG_COOKIE') }}"
+        rabbitmq_cluster_members: "{{ groups['rabbitmq'] }}"
+        rabbitmq_plugins:
+          - rabbitmq_management
+          - rabbitmq_prometheus
+        rabbitmq_ssl:
+          self_signed: true
+          key: /etc/rabbitmq/ssl/server.key
+          cert: /etc/rabbitmq/ssl/server.crt
+          ca: /etc/rabbitmq/ssl/server.crt
+          internode_encryption: true

@@ -1,0 +1,38 @@
+---
+# Single RabbitMQ node with management, Prometheus scraping and a backup cron job.
+# No TLS; plain AMQP on 5672 and management on 15672.
+#
+# The admin password is read from the environment of the controller:
+#   export RABBITMQ_ADMIN_PASSWORD=...
+- name: Install a single RabbitMQ node
+  hosts: rabbitmq
+  become: true
+  roles:
+    - role: digitalis.digitalis.rabbitmq
+      vars:
+        rabbitmq_version: "4.2.5"
+        rabbitmq_admin_user: admin
+        rabbitmq_admin_password: "{{ lookup('ansible.builtin.env', 'RABBITMQ_ADMIN_PASSWORD') }}"
+        rabbitmq_plugins:
+          - rabbitmq_management
+          - rabbitmq_prometheus
+        rabbitmq_vhosts:
+          - name: /myapp
+            state: present
+        rabbitmq_users:
+          - name: guest
+            state: absent
+          - name: appuser
+            password: "{{ lookup('ansible.builtin.env', 'RABBITMQ_APP_PASSWORD') }}"
+            vhost: /myapp
+            configure_priv: ".*"
+            read_priv: ".*"
+            write_priv: ".*"
+        rabbitmq_queues:
+          - name: orders
+            create_dlq: true
+        rabbitmq_backup_cronjob:
+          enabled: true
+          schedule: "0 1 * * *"
+          directory: /var/backups/rabbitmq
+          retention_days: 7

@@ -12,7 +12,20 @@
   of restarting it. The collection now depends on `community.postgresql`,
   `community.crypto` and `community.general`.
 - `rabbitmq`: role moved in from ansible-role-rabbitmq. The collection now
-  depends on `community.rabbitmq` and `ansible.posix`.
+  depends on `community.rabbitmq`, `ansible.posix` and `community.crypto`.
+- `rabbitmq`: add `rabbitmq_ssl.self_signed` option to generate a 4096-bit RSA
+  key and a self-signed certificate on the target host using `community.crypto`.
+  The `rabbitmq_ssl_dir` variable controls where the directory is created.
+  Inter-node TLS defaults to `verify_none` for self-signed deployments.
+- `rabbitmq`: `rabbitmq_ssl.ca` is no longer a required field when
+  `rabbitmq_ssl.self_signed` is true; it defaults to the cert path.
+- `rabbitmq`: `rabbitmq_apt_key_path` default changed from `.gpg` to `.asc`
+  (the upstream key is already armoured; `gpg --dearmor` is no longer needed).
+- `rabbitmq`: `rabbitmq_erlang_version_map` is now validated on Debian family
+  hosts; an unsupported `ansible_distribution_release` fails fast instead of
+  silently using a stale Erlang version.
+- `rabbitmq`: add `rabbitmq_haproxy_stats_enabled` (default `false`); the
+  HAProxy stats page is now disabled by default and requires explicit opt-in.
 - `prometheus`: role moved in from ansible-role-prometheus.
 - Role READMEs list variables generated from `meta/argument_specs.yml` with
   `aar-doc`; run `scripts/generate-docs.sh` to refresh them. The `examples/`

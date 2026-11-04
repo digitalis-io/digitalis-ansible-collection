@@ -1,0 +1,14 @@
+---
+all:
+  children:
+    rabbitmq:
+      hosts:
+        rabbitmq-01:
+          ansible_host: 192.0.2.10
+          ansible_user: ubuntu
+        rabbitmq-02:
+          ansible_host: 192.0.2.11
+          ansible_user: ubuntu
+        rabbitmq-03:
+          ansible_host: 192.0.2.12
+          ansible_user: ubuntu
