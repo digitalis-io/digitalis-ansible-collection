@@ -9,7 +9,7 @@ rabbitmq_version: "4.2.5"
 rabbitmq_admin_version: "2.29.0"
 
 rabbitmq_apt_arch: "{{ ansible_architecture | replace('x86_64', 'amd64') | replace('aarch64', 'arm64') }}"
-rabbitmq_apt_key_path: /usr/share/keyrings/com.rabbitmq.team.gpg
+rabbitmq_apt_key_path: /usr/share/keyrings/com.rabbitmq.team.asc
 rabbitmq_apt_key_url: "https://keys.openpgp.org/vks/v1/by-fingerprint/0A9AF2115F4687BD29803A206B73A36E6026DFCA"
 rabbitmq_apt_repos:
   - url: https://deb1.rabbitmq.com/rabbitmq-erlang
@@ -51,6 +51,7 @@ rabbitmq_erlang_packages:
   - erlang-xmerl={{ rabbitmq_erlang_version }}
 
 rabbitmq_erlang_cookie: ""
+rabbitmq_erlang_version_rpm: ""
 
 rabbitmq_cluster_members: []
 
@@ -88,6 +89,9 @@ rabbitmq_haproxy_amqp_ssl_port: 5673
 rabbitmq_haproxy_mgmt_port: 15670
 rabbitmq_haproxy_mgmt_ssl_port: 15673
 rabbitmq_haproxy_stats_port: 1936
+rabbitmq_haproxy_stats_enabled: false
+# rabbitmq_haproxy_stats_user: haproxy-stats
+# rabbitmq_haproxy_stats_password: ""
 rabbitmq_haproxy_log_address: "127.0.0.1"
 rabbitmq_haproxy_stats_address: "127.0.0.1"
 rabbitmq_haproxy_group: rabbitmq
@@ -107,12 +111,16 @@ rabbitmq_oauth2_verify_peer: true
 
 rabbitmq_cluster_tags: {}
 
+rabbitmq_ssl_dir: /etc/rabbitmq/ssl
+
 # rabbitmq_ssl:
-#   key: /etc/rabbitmq/server.key
-#   cert: /etc/rabbitmq/server.crt
-#   ca: /etc/rabbitmq/ca.pem
+#   key: /etc/rabbitmq/ssl/server.key
+#   cert: /etc/rabbitmq/ssl/server.crt
+#   ca: /etc/rabbitmq/ssl/ca.pem
+#   self_signed: false       # generate a self-signed cert; set key/cert/ca paths above
 #   password: ""
 #   internode_encryption: false
+#   internode_verify: verify_peer
 
 rabbitmq_sysctl:
   fs.file-max: 200000
@@ -132,6 +140,9 @@ rabbitmq_initial_frame_max: 4096
 rabbitmq_frame_max: 131072
 
 rabbitmq_ssl_ciphers:
+  - TLS_AES_256_GCM_SHA384
+  - TLS_AES_128_GCM_SHA256
+  - TLS_CHACHA20_POLY1305_SHA256
   - ECDHE-ECDSA-AES256-GCM-SHA384
   - ECDHE-RSA-AES256-GCM-SHA384
   - ECDH-ECDSA-AES256-GCM-SHA384

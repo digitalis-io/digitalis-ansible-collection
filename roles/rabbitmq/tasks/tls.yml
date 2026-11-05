@@ -1,0 +1,48 @@
+---
+- name: Create TLS certificate directory
+  ansible.builtin.file:
+    path: "{{ rabbitmq_ssl_dir }}"
+    state: directory
+    owner: rabbitmq
+    group: rabbitmq
+    mode: "0750"
+
+- name: Generate RabbitMQ TLS private key
+  community.crypto.openssl_privatekey:
+    path: "{{ rabbitmq_ssl.key }}"
+    size: 4096
+    owner: rabbitmq
+    group: rabbitmq
+    mode: "0600"
+
+- name: Generate RabbitMQ TLS certificate signing request
+  community.crypto.openssl_csr_pipe:
+    privatekey_path: "{{ rabbitmq_ssl.key }}"
+    common_name: "{{ ansible_fqdn }}"
+    subject_alt_name: "{{ _rabbitmq_ssl_san }}"
+  vars:
+    _rabbitmq_ssl_san: >-
+      {{ (['DNS:' ~ ansible_fqdn, 'DNS:' ~ ansible_hostname, 'IP:127.0.0.1']
+          + (['IP:' ~ ansible_default_ipv4.address]
+             if ansible_default_ipv4.address is defined else [])) | unique }}
+  register: _rabbitmq_tls_csr
+  changed_when: false
+  check_mode: false
+
+- name: Create self-signed RabbitMQ TLS certificate
+  community.crypto.x509_certificate:
+    path: "{{ rabbitmq_ssl.cert }}"
+    csr_content: "{{ _rabbitmq_tls_csr.csr }}"
+    privatekey_path: "{{ rabbitmq_ssl.key }}"
+    provider: selfsigned
+    selfsigned_not_after: "+3650d"
+    owner: rabbitmq
+    group: rabbitmq
+    mode: "0644"
+  when: not ansible_check_mode
+  notify: Restart rabbitmq
+
+- name: Set CA to self-signed certificate
+  ansible.builtin.set_fact:
+    rabbitmq_ssl: "{{ rabbitmq_ssl | combine({'ca': rabbitmq_ssl.cert}) }}"
+  when: rabbitmq_ssl.ca is not defined or rabbitmq_ssl.ca == ""

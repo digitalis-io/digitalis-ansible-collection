@@ -7,10 +7,36 @@
       - rabbitmq_plugins | length == 0 or 'rabbitmq_management' in rabbitmq_plugins
       - rabbitmq_cluster_members | length < 2 or rabbitmq_erlang_cookie | length > 0
       - rabbitmq_oauth2_issuer is not defined or (rabbitmq_oauth2_client_id is defined and rabbitmq_oauth2_client_secret is defined)
+      - not (rabbitmq_use_longname | default(false)) or (rabbitmq_domain is defined and rabbitmq_domain | length > 0) or ansible_domain | length > 0
+      - ansible_os_family != 'Debian' or ansible_distribution_release in rabbitmq_erlang_version_map
+      - rabbitmq_ssl is not defined or (rabbitmq_ssl.self_signed | default(false)) or rabbitmq_ssl.ca is defined
     fail_msg: >-
       rabbitmq_admin_password must be set; rabbitmq_plugins must be a list including rabbitmq_management;
-      clusters need rabbitmq_erlang_cookie; OAuth2 needs client_id and client_secret
+      clusters need rabbitmq_erlang_cookie; OAuth2 needs client_id and client_secret;
+      longname mode requires rabbitmq_domain or a resolvable FQDN;
+      ansible_distribution_release is not in rabbitmq_erlang_version_map, add an entry before deploying;
+      rabbitmq_ssl.ca is required when rabbitmq_ssl is defined and self_signed is false
     quiet: true
+  tags:
+    - always
+
+- name: Compute effective node name
+  ansible.builtin.set_fact:
+    _rabbitmq_nodename: >-
+      {{ ('rabbit@' ~ ansible_hostname ~ '.' ~ (rabbitmq_domain | default(ansible_domain) | default('internal')))
+         if rabbitmq_use_longname | default(false)
+         else rabbitmq_nodename }}
+  tags:
+    - always
+
+- name: Resolve effective plugin list
+  ansible.builtin.set_fact:
+    _rabbitmq_plugins: >-
+      {{ rabbitmq_plugins
+         + (['rabbitmq_auth_backend_oauth2']
+            if (rabbitmq_oauth2_issuer is defined and rabbitmq_oauth2_issuer != ""
+                and 'rabbitmq_auth_backend_oauth2' not in rabbitmq_plugins)
+            else []) }}
   tags:
     - always
 
@@ -22,8 +48,8 @@
       ansible.builtin.copy:
         dest: /etc/security/limits.d/rabbitmq.conf
         content: |
-          rabbitmq soft nofile 65535
-          rabbitmq hard nofile 65535
+          rabbitmq soft nofile {{ rabbitmq_file_limits }}
+          rabbitmq hard nofile {{ rabbitmq_file_limits }}
         mode: "0644"
 
     - name: Apply sysctl tuning
@@ -60,6 +86,13 @@
         src: service_override.conf.j2
         mode: "0644"
       notify: Reload systemd daemon
+
+- name: Generate self-signed TLS certificates
+  ansible.builtin.import_tasks: tls.yml
+  when: rabbitmq_ssl is defined and rabbitmq_ssl.self_signed | default(false)
+  tags:
+    - rabbitmq
+    - tls
 
 - name: RabbitMQ main config
   tags:
@@ -129,11 +162,11 @@
   tags: plugins
   ansible.builtin.copy:
     dest: /etc/rabbitmq/enabled_plugins
-    content: "[{{ rabbitmq_plugins | join(',') }}]."
+    content: "[{{ _rabbitmq_plugins | join(',') }}]."
     mode: "0644"
     owner: rabbitmq
     group: rabbitmq
-  when: rabbitmq_plugins | length > 0
+  when: _rabbitmq_plugins | length > 0
   notify: Restart rabbitmq
 
 - name: Ensure RabbitMQ is started and enabled

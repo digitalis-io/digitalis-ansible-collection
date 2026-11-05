@@ -37,6 +37,12 @@
       find "$dir" -name 'cluster.backup-*.json' -mtime +{{ rabbitmq_backup_cronjob.retention_days }} -delete
   when: rabbitmq_backup_cronjob.enabled | bool
 
+- name: Install cron daemon
+  ansible.builtin.package:
+    name: "{{ 'cron' if ansible_os_family == 'Debian' else 'cronie' }}"
+    state: present
+  when: rabbitmq_backup_cronjob.enabled | bool
+
 - name: Enable RabbitMQ backup cronjob
   ansible.builtin.copy:
     dest: /etc/cron.d/rabbitmq-backup

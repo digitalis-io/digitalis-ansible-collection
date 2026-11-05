@@ -1,0 +1,27 @@
+---
+- name: "Reject {{ rabbitmq_test_name }}"
+  block:
+    - name: "Apply rabbitmq with {{ rabbitmq_test_name }}"
+      ansible.builtin.include_role:
+        name: rabbitmq
+
+    - name: Fail because the role accepted invalid input
+      ansible.builtin.fail:
+        msg: "rabbitmq accepted {{ rabbitmq_test_name }}"
+
+  rescue:
+    - name: Re-raise when the role accepted invalid input
+      ansible.builtin.fail:
+        msg: "{{ ansible_failed_result.msg }}"
+      when: ansible_failed_task.name == 'Fail because the role accepted invalid input'
+
+    - name: "Assert the failure explains {{ rabbitmq_test_name }}"
+      ansible.builtin.assert:
+        that:
+          - rabbitmq_test_expect in failure_text
+        fail_msg: "Expected '{{ rabbitmq_test_expect }}' in: {{ failure_text }}"
+        quiet: true
+      vars:
+        failure_text: >-
+          {{ ansible_failed_result.msg }}
+          {{ ansible_failed_result.results | default([]) | selectattr('msg', 'defined') | map(attribute='msg') | join(' ') }}

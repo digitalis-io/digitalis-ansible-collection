@@ -51,3 +51,116 @@
         that:
           - rabbitmq_verify_cluster_status.rc == 0
         fail_msg: "rabbitmqctl cluster_status failed"
+
+    - name: Check queue test001 via management API
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:15672/api/queues/%2F/test001"
+        user: admin
+        password: "{{ rabbitmq_admin_password }}"
+        force_basic_auth: true
+        status_code: 200
+      register: rabbitmq_verify_queue
+      no_log: true
+
+    - name: Assert test001 has dead-letter routing key
+      ansible.builtin.assert:
+        that:
+          - rabbitmq_verify_queue.json.arguments['x-dead-letter-routing-key'] == 'test001-dlq'
+        fail_msg: "test001 is missing x-dead-letter-routing-key"
+
+    - name: Check dead-letter queue test001-dlq via management API
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:15672/api/queues/%2F/test001-dlq"
+        user: admin
+        password: "{{ rabbitmq_admin_password }}"
+        force_basic_auth: true
+        status_code: 200
+      register: rabbitmq_verify_dlq
+      no_log: true
+
+    - name: Assert test001-dlq exists
+      ansible.builtin.assert:
+        that:
+          - rabbitmq_verify_dlq.json.name == 'test001-dlq'
+        fail_msg: "dead-letter queue test001-dlq was not created"
+
+    - name: Stat backup cron file
+      ansible.builtin.stat:
+        path: /etc/cron.d/rabbitmq-backup
+      register: rabbitmq_verify_cron_stat
+
+    - name: Assert backup cron file exists and is root-only
+      ansible.builtin.assert:
+        that:
+          - rabbitmq_verify_cron_stat.stat.exists
+          - rabbitmq_verify_cron_stat.stat.mode == '0600'
+        fail_msg: "backup cron file missing or has wrong permissions"
+
+    - name: Read backup cron file
+      ansible.builtin.slurp:
+        src: /etc/cron.d/rabbitmq-backup
+      register: rabbitmq_verify_cron_content
+      no_log: true
+
+    - name: Assert backup cron file does not contain password
+      ansible.builtin.assert:
+        that:
+          - rabbitmq_admin_password not in (rabbitmq_verify_cron_content.content | b64decode)
+        fail_msg: "backup cron file contains the admin password in plaintext"
+      no_log: true
+
+    - name: Stat backup script
+      ansible.builtin.stat:
+        path: /usr/local/sbin/rabbitmq-backup
+      register: rabbitmq_verify_script_stat
+
+    - name: Assert backup script exists and is root-executable
+      ansible.builtin.assert:
+        that:
+          - rabbitmq_verify_script_stat.stat.exists
+          - rabbitmq_verify_script_stat.stat.mode == '0700'
+        fail_msg: "backup script missing or has wrong permissions"
+
+    - name: Read backup script
+      ansible.builtin.slurp:
+        src: /usr/local/sbin/rabbitmq-backup
+      register: rabbitmq_verify_script_content
+      no_log: true
+
+    - name: Assert backup script does not contain password
+      ansible.builtin.assert:
+        that:
+          - rabbitmq_admin_password not in (rabbitmq_verify_script_content.content | b64decode)
+        fail_msg: "backup script contains the admin password in plaintext"
+      no_log: true
+
+    - name: Assert backup script uses credentials file
+      ansible.builtin.assert:
+        that:
+          - "'--config' in (rabbitmq_verify_script_content.content | b64decode)"
+        fail_msg: "backup script does not use a credentials file"
+
+    - name: Stat rabbitmqadmin credentials file
+      ansible.builtin.stat:
+        path: /root/.rabbitmqadmin.conf
+      register: rabbitmq_verify_creds_stat
+
+    - name: Assert credentials file exists and is root-only
+      ansible.builtin.assert:
+        that:
+          - rabbitmq_verify_creds_stat.stat.exists
+          - rabbitmq_verify_creds_stat.stat.mode == '0600'
+        fail_msg: "rabbitmqadmin credentials file missing or has wrong permissions"
+
+    - name: Stat backup directory
+      ansible.builtin.stat:
+        path: /var/backups/rabbitmq
+      register: rabbitmq_verify_backup_dir_stat
+
+    - name: Assert backup directory exists and is root-only
+      ansible.builtin.assert:
+        that:
+          - rabbitmq_verify_backup_dir_stat.stat.exists
+          - rabbitmq_verify_backup_dir_stat.stat.isdir
+          - rabbitmq_verify_backup_dir_stat.stat.mode == '0700'
+        fail_msg: "backup directory missing or has wrong permissions"

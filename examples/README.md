@@ -13,6 +13,8 @@ no secrets are stored in the repository.
 | [postgres-cluster-ha-s3](postgres-cluster-ha-s3/playbook.yml) | Three nodes with synchronous replication, S3 backups, HAProxy and pgAudit |
 | [postgres-cluster-external-zookeeper](postgres-cluster-external-zookeeper/playbook.yml) | PostgreSQL nodes that use an existing ZooKeeper ensemble and Azure backups |
 | [postgres-cluster-tls](postgres-cluster-tls/playbook.yml) | Three nodes with TLS from your own CA and a password protected Patroni API |
+| [rabbitmq-single-node](rabbitmq-single-node/playbook.yml) | Single RabbitMQ node with management, Prometheus scraping and a backup cron job |
+| [rabbitmq-cluster-tls](rabbitmq-cluster-tls/playbook.yml) | Three-node RabbitMQ cluster with self-signed TLS and inter-node encryption |
 
 Check an example without touching any host:
 

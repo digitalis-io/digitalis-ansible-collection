@@ -1,0 +1,71 @@
+---
+- name: Converge
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Reject empty admin password
+      ansible.builtin.include_tasks: expect-rejection.yml
+      vars:
+        rabbitmq_test_name: an empty admin password
+        rabbitmq_test_expect: "rabbitmq_admin_password must be set"
+        rabbitmq_admin_password: ""
+        rabbitmq_plugins: [rabbitmq_management, rabbitmq_prometheus]
+        rabbitmq_cluster_members: []
+        rabbitmq_erlang_cookie: ""
+        rabbitmq_use_longname: false
+
+    - name: Reject plugins as a string
+      ansible.builtin.include_tasks: expect-rejection.yml
+      vars:
+        rabbitmq_test_name: plugins as a string
+        rabbitmq_test_expect: "rabbitmq_plugins must be a list"
+        rabbitmq_admin_password: molecule-only-password
+        rabbitmq_plugins: rabbitmq_management
+        rabbitmq_cluster_members: []
+        rabbitmq_erlang_cookie: ""
+        rabbitmq_use_longname: false
+
+    - name: Reject plugins list without management
+      ansible.builtin.include_tasks: expect-rejection.yml
+      vars:
+        rabbitmq_test_name: plugins list without management
+        rabbitmq_test_expect: "rabbitmq_plugins must be a list including rabbitmq_management"
+        rabbitmq_admin_password: molecule-only-password
+        rabbitmq_plugins: [rabbitmq_prometheus]
+        rabbitmq_cluster_members: []
+        rabbitmq_erlang_cookie: ""
+        rabbitmq_use_longname: false
+
+    - name: Reject cluster without Erlang cookie
+      ansible.builtin.include_tasks: expect-rejection.yml
+      vars:
+        rabbitmq_test_name: a cluster without an Erlang cookie
+        rabbitmq_test_expect: "clusters need rabbitmq_erlang_cookie"
+        rabbitmq_admin_password: molecule-only-password
+        rabbitmq_plugins: [rabbitmq_management, rabbitmq_prometheus]
+        rabbitmq_cluster_members: [node1, node2]
+        rabbitmq_erlang_cookie: ""
+        rabbitmq_use_longname: false
+
+    - name: Reject OAuth2 issuer without client credentials
+      ansible.builtin.include_tasks: expect-rejection.yml
+      vars:
+        rabbitmq_test_name: OAuth2 issuer without client credentials
+        rabbitmq_test_expect: "OAuth2 needs client_id and client_secret"
+        rabbitmq_admin_password: molecule-only-password
+        rabbitmq_plugins: [rabbitmq_management, rabbitmq_prometheus]
+        rabbitmq_cluster_members: []
+        rabbitmq_erlang_cookie: ""
+        rabbitmq_use_longname: false
+        rabbitmq_oauth2_issuer: "https://idp.example.com/realms/test"
+
+    - name: Reject longname without domain on Docker
+      ansible.builtin.include_tasks: expect-rejection.yml
+      vars:
+        rabbitmq_test_name: longname without a domain on Docker
+        rabbitmq_test_expect: "longname mode requires rabbitmq_domain"
+        rabbitmq_admin_password: molecule-only-password
+        rabbitmq_plugins: [rabbitmq_management, rabbitmq_prometheus]
+        rabbitmq_cluster_members: []
+        rabbitmq_erlang_cookie: ""
+        rabbitmq_use_longname: true

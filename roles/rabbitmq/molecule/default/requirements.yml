@@ -2,3 +2,4 @@
 collections:
   - name: community.rabbitmq
   - name: ansible.posix
+  - name: community.crypto
